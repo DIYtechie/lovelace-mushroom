@@ -10,6 +10,8 @@
 
 ![Overview](https://user-images.githubusercontent.com/5878303/152332130-760cf616-5c40-4825-a482-bb8f1f0f5251.png)
 
+> **Credit:** Mushroom is created and maintained by [piitaya](https://github.com/piitaya). This fork exists solely to keep the new template card compatible with Mushroom theme variables.
+
 ## What is mushroom ?
 
 Mushroom is a collection of cards for [Home Assistant][home-assistant] Dashboard UI.
@@ -37,7 +39,7 @@ Mushroom is available in [HACS][hacs] (Home Assistant Community Store).
 
 Use this link to directly go to the repository in HACS
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=piitaya&repository=lovelace-mushroom)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=runemg&repository=lovelace-mushroom)
 
 _or_
 
