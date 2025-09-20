@@ -14,7 +14,7 @@
   "author": "Paul Bottein",
   "repository": {
     "type": "git",
-    "url": "https://github.com/piitaya/lovelace-mushroom"
+    "url": "https://github.com/runemg/lovelace-mushroom"
   },
   "license": "ISC",
   "dependencies": {

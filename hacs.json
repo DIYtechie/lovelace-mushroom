@@ -1,6 +1,7 @@
 {
-  "name": "Mushroom",
+  "name": "Mushroom DIY",
   "filename": "mushroom.js",
-  "homeassistant": "2025.6",
-  "render_readme": true
+  "homeassistant": "2025.6.0",
+  "render_readme": true,
+  "content_in_root": false
 }
