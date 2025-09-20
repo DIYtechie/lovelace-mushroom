@@ -1,4 +1,4 @@
-# 🍄 Mushroom
+# 🍄 Mushroom DIY - makes template card compatible with mushroom variables again
 
 [![hacs][hacs-badge]][hacs-url]
 [![release][release-badge]][release-url]
