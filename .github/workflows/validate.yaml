@@ -3,13 +3,18 @@ on:
     push:
         branches:
             - main
+    pull_request:
 jobs:
     validate:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout
-              uses: actions/checkout@v2
-            - name: HACS validation
-              uses: "hacs/action@main"
+              uses: actions/checkout@v4
+            - name: Setup Python
+              uses: actions/setup-python@v5
               with:
-                  category: "plugin"
+                  python-version: "3.12"
+            - name: HACS validation
+              uses: hacs/action@main
+              with:
+                  category: plugin

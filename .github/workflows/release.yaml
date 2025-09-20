@@ -8,15 +8,19 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout
-              uses: actions/checkout@v2
-            - name: Install
+              uses: actions/checkout@v4
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: npm
+            - name: Install dependencies
               run: npm ci
-            - name: Build
+            - name: Build distribution bundle
               run: npm run build
-            - name: Release
-              uses: softprops/action-gh-release@v1
+            - name: Publish release assets
+              uses: softprops/action-gh-release@v2
               if: startsWith(github.ref, 'refs/tags/')
               with:
-                  draft: true
                   generate_release_notes: true
                   files: dist/*.js
