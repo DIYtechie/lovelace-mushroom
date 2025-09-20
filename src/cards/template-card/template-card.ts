@@ -486,29 +486,37 @@ export class MushroomTemplateCard extends LitElement implements LovelaceCard {
                   ? html`
                       <ha-tile-info
                         id="info"
-                        .primary=${supportTileInfoSlot ? undefined : primary}
+                        .primary=${supportTileInfoSlot
+                          ? undefined
+                          : html`
+                              <span class="primary-text"
+                                >${primary ?? ""}</span
+                              >
+                            `}
                         .secondary=${supportTileInfoSlot
                           ? undefined
                           : html`
                               <span
-                                style=${styleMap({
-                                  "white-space": multilineSecondary
-                                    ? "pre-wrap"
-                                    : "nowrap",
+                                class=${classMap({
+                                  "secondary-text": true,
+                                  multiline: Boolean(multilineSecondary),
                                 })}
-                                >${secondary?.trim()}</span
+                                >${secondary?.trim() ?? ""}</span
                               >
                             `}
                       >
                         ${supportTileInfoSlot
                           ? html`
-                              <span slot="primary">${primary}</span>
+                              <span slot="primary" class="primary-text"
+                                >${primary ?? ""}</span
+                              >
                               <span
                                 slot="secondary"
                                 class=${classMap({
+                                  "secondary-text": true,
                                   multiline: Boolean(multilineSecondary),
                                 })}
-                                >${secondary}</span
+                                >${secondary ?? ""}</span
                               >
                             `
                           : nothing}
@@ -608,19 +616,44 @@ export class MushroomTemplateCard extends LitElement implements LovelaceCard {
         flex: none;
       }
 
-      .multiline {
+      .primary-text {
+        font-weight: var(--card-primary-font-weight);
+        font-size: var(--card-primary-font-size);
+        line-height: var(--card-primary-line-height);
+        color: var(--card-primary-color);
+        letter-spacing: var(--card-primary-letter-spacing);
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+        display: block;
+      }
+      .secondary-text {
+        font-weight: var(--card-secondary-font-weight);
+        font-size: var(--card-secondary-font-size);
+        line-height: var(--card-secondary-line-height);
+        color: var(--card-secondary-color);
+        letter-spacing: var(--card-secondary-letter-spacing);
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+        display: block;
+      }
+      .secondary-text.multiline {
         white-space: pre-wrap;
       }
 
       ha-tile-icon {
+        --tile-icon-border-radius: var(--icon-border-radius);
         --tile-icon-color: var(--tile-color);
+        --tile-icon-size: var(--icon-size);
+        --tile-icon-symbol-size: var(--icon-symbol-size);
         position: relative;
         padding: 6px;
         margin: -6px;
       }
       ha-tile-icon.weather svg {
-        width: 36px;
-        height: 36px;
+        width: var(--icon-size);
+        height: var(--icon-size);
         display: flex;
       }
       ha-tile-icon.weather {
