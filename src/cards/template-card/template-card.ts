@@ -391,19 +391,24 @@ export class MushroomTemplateCard extends MushroomBaseElement implements Lovelac
 
     const weatherSvg = getWeatherSvgIcon(icon);
 
-    const style = {
-      "--tile-color": cssColor,
-    };
+    const style: Record<string, string> = {};
+    if (cssColor) {
+      style["--tile-color"] = cssColor;
+    }
 
     const featurePosition = this._featurePosition(this._config);
     const features = this._displayedFeatures(this._config);
 
     const multilineSecondary = this._config.multiline_secondary;
+    const hasInfo = Boolean(primary || secondary);
+    const secondaryText = multilineSecondary
+      ? secondary ?? ""
+      : secondary?.trim() ?? "";
 
     const featureContext = this._featureContext(this._config);
 
     const featureOnly =
-      features.length > 0 && !icon && !picture && !primary && !secondary;
+      features.length > 0 && !icon && !picture && !hasInfo;
 
     const containerClasses = classMap({
       horizontal: featurePosition === "inline",
@@ -429,12 +434,12 @@ export class MushroomTemplateCard extends MushroomBaseElement implements Lovelac
           })}
           role=${ifDefined(this._hasCardAction ? "button" : undefined)}
           tabindex=${ifDefined(this._hasCardAction ? "0" : undefined)}
-          aria-labelledby="info"
+          aria-labelledby=${ifDefined(hasInfo ? "info" : undefined)}
         >
           <ha-ripple .disabled=${!this._hasCardAction}></ha-ripple>
         </div>
         <div class="container ${containerClasses}">
-          ${icon || picture || primary || secondary
+          ${icon || picture || hasInfo
             ? html`<div class="content ${contentClasses}">
                 ${icon || picture
                   ? html`
@@ -481,7 +486,7 @@ export class MushroomTemplateCard extends MushroomBaseElement implements Lovelac
                       </ha-tile-icon>
                     `
                   : nothing}
-                ${primary || secondary
+                ${hasInfo
                   ? html`
                       <ha-tile-info
                         id="info"
@@ -500,7 +505,7 @@ export class MushroomTemplateCard extends MushroomBaseElement implements Lovelac
                                   "secondary-text": true,
                                   multiline: Boolean(multilineSecondary),
                                 })}
-                                >${secondary?.trim() ?? ""}</span
+                                >${secondaryText}</span
                               >
                             `}
                       >
@@ -515,7 +520,7 @@ export class MushroomTemplateCard extends MushroomBaseElement implements Lovelac
                                   "secondary-text": true,
                                   multiline: Boolean(multilineSecondary),
                                 })}
-                                >${secondary ?? ""}</span
+                                >${secondaryText}</span
                               >
                             `
                           : nothing}
@@ -546,7 +551,10 @@ export class MushroomTemplateCard extends MushroomBaseElement implements Lovelac
       weatherSVGStyles,
       css`
       :host {
-        --tile-color: var(--state-inactive-color);
+        --tile-color: var(
+          --icon-color,
+          var(--state-inactive-color, rgb(var(--rgb-disabled)))
+        );
         -webkit-tap-highlight-color: transparent;
       }
       ha-card:has(.background:focus-visible) {
