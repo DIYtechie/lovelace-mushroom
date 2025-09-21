@@ -1,6 +1,6 @@
 import { UnsubscribeFunc } from "home-assistant-js-websocket";
 import { css, html, nothing, PropertyValues } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { customElement, state } from "lit/decorators.js";
 import { classMap } from "lit/directives/class-map.js";
 import { ifDefined } from "lit/directives/if-defined.js";
 import { styleMap } from "lit/directives/style-map.js";
@@ -89,8 +89,6 @@ export class MushroomTemplateCard extends MushroomBaseElement implements Lovelac
       icon: "mdi:mushroom",
     };
   }
-
-  @property({ attribute: false }) public override hass!: HomeAssistant;
 
   @state() private _config?: TemplateCardConfig;
 
@@ -542,10 +540,11 @@ export class MushroomTemplateCard extends MushroomBaseElement implements Lovelac
     `;
   }
 
-  static override styles = [
-    super.styles,
-    weatherSVGStyles,
-    css`
+  static override get styles() {
+    return [
+      super.styles,
+      weatherSVGStyles,
+      css`
       :host {
         --tile-color: var(--state-inactive-color);
         -webkit-tap-highlight-color: transparent;
@@ -718,8 +717,9 @@ export class MushroomTemplateCard extends MushroomBaseElement implements Lovelac
       .container.horizontal:not(:has(ha-tile-info)) .content {
         flex: none;
       }
-    `,
-  ];
+      `,
+    ];
+  }
 }
 
 declare global {
