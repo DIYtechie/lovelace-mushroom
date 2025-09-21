@@ -147,6 +147,12 @@ You can build the `mushroom.js` file in `dist` folder by running the build comma
 npm run build
 ```
 
+### Releasing
+
+1. Bump the version in `package.json` (for example with `npm version patch`) so the bundle reports the right release number in Home Assistant.
+2. Run `npm run build` to generate `dist/mushroom.js` for the new version.
+3. Create a Git tag such as `vX.Y.Z` that matches the package version and publish a GitHub release that uploads the freshly built `dist/mushroom.js` asset.
+
 ### Translations
 
 If you want to help translating Mushroom, you can translate it directly from your browser using [Weblate][weblate-url].
