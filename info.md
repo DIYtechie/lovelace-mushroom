@@ -8,3 +8,6 @@ It ships the built `mushroom.js` bundle that HACS installs as a Lovelace plugin.
 
 Use [HACS](https://hacs.xyz/) and add the repository as a custom Lovelace plugin,
 or download `mushroom.js` from the latest release and place it in `config/www`.
+
+The loaded release writes its version to the browser console. You can also confirm it by running
+`window.mushroomDIYVersion` in the browser developer tools.

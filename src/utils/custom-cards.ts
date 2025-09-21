@@ -1,20 +1,30 @@
-import { repository } from "../../package.json";
+import { repository, version } from "../../package.json";
 
 interface RegisterCardParams {
   type: string;
   name: string;
   description: string;
 }
+
+declare global {
+  interface Window {
+    customCards?: unknown[];
+    mushroomDIYVersion?: string;
+  }
+}
+
 export function registerCustomCard(params: RegisterCardParams) {
-  const windowWithCards = window as unknown as Window & {
-    customCards: unknown[];
-  };
-  windowWithCards.customCards = windowWithCards.customCards || [];
+  window.customCards = window.customCards || [];
+
+  if (!window.mushroomDIYVersion) {
+    window.mushroomDIYVersion = version;
+  }
 
   const cardPage = params.type.replace("-card", "").replace("mushroom-", "");
-  windowWithCards.customCards.push({
+  window.customCards.push({
     ...params,
     preview: true,
+    version,
     documentationURL: `${repository.url}/blob/main/docs/cards/${cardPage}.md`,
   });
 }

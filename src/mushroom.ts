@@ -5,6 +5,12 @@ import "./utils/form/custom/ha-selector-mushroom-icon-type";
 import "./utils/form/custom/ha-selector-mushroom-info";
 import "./utils/form/custom/ha-selector-mushroom-layout";
 
+declare global {
+  interface Window {
+    mushroomDIYVersion?: string;
+  }
+}
+
 import "./cards/alarm-control-panel-card/alarm-control-panel-card";
 import "./cards/chips-card/chips-card";
 import "./cards/climate-card/climate-card";
@@ -28,7 +34,9 @@ import "./cards/vacuum-card/vacuum-card";
 
 import "./badges/template/template-badge";
 
+window.mushroomDIYVersion = version;
+
 console.info(
-  `%c🍄 Mushroom 🍄 - ${version}`,
+  `%c🍄 Mushroom DIY 🍄 - ${version}`,
   "color: #ef5350; font-weight: 700;"
 );

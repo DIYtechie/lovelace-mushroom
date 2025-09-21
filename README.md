@@ -154,6 +154,11 @@ npm run build
 2. Run `npm run build` to generate `dist/mushroom.js` for the new version.
 3. Create a Git tag such as `vX.Y.Z` that matches the package version and publish a GitHub release that uploads the freshly built `dist/mushroom.js` asset.
 
+
+### Check the installed version
+
+When Home Assistant loads the Mushroom DIY bundle it writes the current version to the browser console and exposes it on `window.mushroomDIYVersion`. Open your browser’s developer tools and run `window.mushroomDIYVersion` to confirm which release is active.
+
 ### Translations
 
 If you want to help translating Mushroom, you can translate it directly from your browser using [Weblate][weblate-url].
