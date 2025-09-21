@@ -90,6 +90,7 @@ Different cards are available for differents entities :
 - 🙋 [Person card](docs/cards/person.md)
 - 📑 [Select card](docs/cards/select.md)
 - 🛠 [Template card](docs/cards/template.md)
+- 🧰 [DIY Template card](docs/cards/diy-template.md)
 - ✏️ [Title card](docs/cards/title.md)
 - 📦 [Update card](docs/cards/update.md)
 - 🧹 [Vacuum card](docs/cards/vacuum.md)
