@@ -39,7 +39,7 @@ Mushroom is available in [HACS][hacs] (Home Assistant Community Store).
 
 Use this link to directly go to the repository in HACS
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=runemg&repository=lovelace-mushroom)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=diytechie&repository=lovelace-mushroom)
 
 _or_
 
@@ -153,6 +153,7 @@ npm run build
 1. Bump the version in `package.json` (for example with `npm version patch`) so the bundle reports the right release number in Home Assistant.
 2. Run `npm run build` to generate `dist/mushroom.js` for the new version.
 3. Create a Git tag such as `vX.Y.Z` that matches the package version and publish a GitHub release that uploads the freshly built `dist/mushroom.js` asset.
+
 
 ### Check the installed version
 
