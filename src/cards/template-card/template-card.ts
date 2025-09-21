@@ -1,5 +1,5 @@
 import { UnsubscribeFunc } from "home-assistant-js-websocket";
-import { css, html, LitElement, nothing, PropertyValues } from "lit";
+import { css, html, nothing, PropertyValues } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { classMap } from "lit/directives/class-map.js";
 import { ifDefined } from "lit/directives/if-defined.js";
@@ -23,6 +23,7 @@ import {
 } from "../../ha";
 import { computeCssColor } from "../../ha/common/color/compute-color";
 import { isTemplate } from "../../ha/common/string/has-template";
+import { MushroomBaseElement } from "../../utils/base-element";
 import { CacheManager } from "../../utils/cache-manager";
 import { registerCustomCard } from "../../utils/custom-cards";
 import {
@@ -72,7 +73,7 @@ export interface LovelaceCardFeatureContext {
 }
 
 @customElement("mushroom-template-card")
-export class MushroomTemplateCard extends LitElement implements LovelaceCard {
+export class MushroomTemplateCard extends MushroomBaseElement implements LovelaceCard {
   public static async getConfigElement(): Promise<LovelaceCardEditor> {
     await import("./template-card-editor");
     return document.createElement(
@@ -89,7 +90,7 @@ export class MushroomTemplateCard extends LitElement implements LovelaceCard {
     };
   }
 
-  @property({ attribute: false }) public hass?: HomeAssistant;
+  @property({ attribute: false }) public override hass!: HomeAssistant;
 
   @state() private _config?: TemplateCardConfig;
 
@@ -541,7 +542,8 @@ export class MushroomTemplateCard extends LitElement implements LovelaceCard {
     `;
   }
 
-  static styles = [
+  static override styles = [
+    super.styles,
     weatherSVGStyles,
     css`
       :host {
