@@ -49,7 +49,7 @@ All options are available in the **Lovelace editor**, but you can also configure
 
 ## Theming
 
-This card is not compatible with Mushroom themes because it based on the official [Tile card](https://www.home-assistant.io/dashboards/tile/). If you want a theme compatible card, use the [Legacy Template Card](./legacy-template.md).
+The Template Card consumes the same Mushroom theme variables as the rest of the collection. Override tokens such as `--mush-card-primary-color`, `--mush-card-secondary-font-size`, `--mush-icon-border-radius`, `--mush-icon-size`, or `--icon-color` in your theme (or on a single card via `style:`) to tune typography, spacing, and icon appearance to match your dashboard.
 
 ## Available Colors
 
