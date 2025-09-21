@@ -1,8 +1,13 @@
 name: Release
 on:
     push:
+        branches:
+            - main
         tags:
             - "v*.*.*"
+    workflow_dispatch:
+permissions:
+    contents: write
 jobs:
     release:
         runs-on: ubuntu-latest
@@ -18,9 +23,34 @@ jobs:
               run: npm ci
             - name: Build distribution bundle
               run: npm run build
-            - name: Publish release assets
-              uses: softprops/action-gh-release@v2
+            - name: Prepare release assets
+              run: |
+                  mkdir -p release-artifacts
+                  cp dist/mushroom.js release-artifacts/
+                  if [ -f dist/mushroom.js.map ]; then cp dist/mushroom.js.map release-artifacts/; fi
+                  cd dist
+                  zip -r ../release-artifacts/mushroom.zip .
+            - name: Publish tagged release
               if: startsWith(github.ref, 'refs/tags/')
+              uses: ncipollo/release-action@v1
               with:
-                  generate_release_notes: true
-                  files: dist/*.js
+                  token: ${{ secrets.GITHUB_TOKEN }}
+                  tag: ${{ github.ref_name }}
+                  name: ${{ github.ref_name }}
+                  commitish: ${{ github.sha }}
+                  makeLatest: true
+                  generateReleaseNotes: true
+                  artifacts: release-artifacts/*
+                  artifactErrorsFailBuild: true
+            - name: Publish latest bundle
+              if: github.ref == 'refs/heads/main'
+              uses: ncipollo/release-action@v1
+              with:
+                  token: ${{ secrets.GITHUB_TOKEN }}
+                  tag: latest
+                  name: Latest
+                  commitish: ${{ github.sha }}
+                  allowUpdates: true
+                  removeArtifacts: true
+                  artifacts: release-artifacts/*
+                  artifactErrorsFailBuild: true
