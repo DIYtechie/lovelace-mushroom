@@ -29,7 +29,7 @@ import { registerCustomCard } from "../../utils/custom-cards";
 import {
   migrateTemplateCardConfig,
   TemplateCardConfig,
-} from "./template-card-config";
+} from "../template-card/template-card-config";
 import { getWeatherSvgIcon } from "../../utils/icons/weather-icon";
 import { weatherSVGStyles } from "../../utils/weather";
 
@@ -43,9 +43,9 @@ export const getEntityDefaultTileIconAction = (entityId: string) => {
 };
 
 registerCustomCard({
-  type: "mushroom-template-card",
-  name: "Mushroom Template",
-  description: "Build your own Mushroom card using templates",
+  type: "mushroom-diy-template-card",
+  name: "Mushroom DIY Template",
+  description: "Template-based card that respects Mushroom theming variables",
 });
 
 const templateCache = new CacheManager<TemplateResults>(1000);
@@ -72,10 +72,13 @@ export interface LovelaceCardFeatureContext {
   area_id?: string;
 }
 
-@customElement("mushroom-template-card")
-export class MushroomTemplateCard extends MushroomBaseElement implements LovelaceCard {
+@customElement("mushroom-diy-template-card")
+export class MushroomDiyTemplateCard
+  extends MushroomBaseElement
+  implements LovelaceCard
+{
   public static async getConfigElement(): Promise<LovelaceCardEditor> {
-    await import("./template-card-editor");
+    await import("../template-card/template-card-editor");
     return document.createElement(
       "mushroom-template-card-editor"
     ) as LovelaceCardEditor;
@@ -83,7 +86,7 @@ export class MushroomTemplateCard extends MushroomBaseElement implements Lovelac
 
   public static getStubConfig(): TemplateCardConfig {
     return {
-      type: `custom:mushroom-template-card`,
+      type: `custom:mushroom-diy-template-card`,
       primary: "Hello, {{user}}",
       secondary: "How are you?",
       icon: "mdi:mushroom",
@@ -607,12 +610,12 @@ export class MushroomTemplateCard extends MushroomBaseElement implements Lovelac
         display: flex;
         flex-direction: row;
         align-items: center;
-        padding: 10px;
+        padding: var(--spacing);
         flex: 1;
         min-width: 0;
         box-sizing: border-box;
         pointer-events: none;
-        gap: 10px;
+        gap: var(--spacing);
       }
 
       .vertical {
@@ -657,8 +660,8 @@ export class MushroomTemplateCard extends MushroomBaseElement implements Lovelac
         --tile-icon-size: var(--icon-size);
         --tile-icon-symbol-size: var(--icon-symbol-size);
         position: relative;
-        padding: 6px;
-        margin: -6px;
+        padding: calc(var(--spacing) * 0.6);
+        margin: calc(var(--spacing) * -0.6);
       }
       ha-tile-icon.weather svg {
         width: var(--icon-size);
@@ -672,9 +675,9 @@ export class MushroomTemplateCard extends MushroomBaseElement implements Lovelac
       }
       ha-tile-badge {
         position: absolute;
-        top: 3px;
-        right: 3px;
-        inset-inline-end: 3px;
+        top: calc(var(--spacing) * 0.3);
+        right: calc(var(--spacing) * 0.3);
+        inset-inline-end: calc(var(--spacing) * 0.3);
         inset-inline-start: initial;
         --tile-badge-background-color: var(
           --badge-color,
@@ -695,13 +698,13 @@ export class MushroomTemplateCard extends MushroomBaseElement implements Lovelac
       }
       hui-card-features {
         --feature-color: var(--tile-color);
-        padding: 0 12px 12px 12px;
+        padding: 0 var(--spacing) var(--spacing) var(--spacing);
       }
       .container.horizontal hui-card-features {
-        width: calc(50% - var(--column-gap, 0px) / 2 - 12px);
+        width: calc(50% - var(--column-gap, 0px) / 2 - var(--spacing));
         flex: none;
         --feature-height: 36px;
-        padding: 0 12px;
+        padding: 0 var(--spacing);
         padding-inline-start: 0;
       }
       .container.feature-only {
@@ -710,10 +713,10 @@ export class MushroomTemplateCard extends MushroomBaseElement implements Lovelac
       .container.feature-only hui-card-features {
         flex: 1;
         width: 100%;
-        padding: 12px 12px 12px 12px;
+        padding: var(--spacing);
       }
       .container.feature-only.horizontal hui-card-features {
-        padding: 0 12px;
+        padding: 0 var(--spacing);
       }
       .container.horizontal .content:not(:has(ha-tile-info)) {
         flex: none;
@@ -732,6 +735,6 @@ export class MushroomTemplateCard extends MushroomBaseElement implements Lovelac
 
 declare global {
   interface HTMLElementTagNameMap {
-    "mushroom-template-card": MushroomTemplateCard;
+    "mushroom-diy-template-card": MushroomDiyTemplateCard;
   }
 }

@@ -90,6 +90,7 @@ Different cards are available for differents entities :
 - 🙋 [Person card](docs/cards/person.md)
 - 📑 [Select card](docs/cards/select.md)
 - 🛠 [Template card](docs/cards/template.md)
+- 🧰 [DIY Template card](docs/cards/diy-template.md)
 - ✏️ [Title card](docs/cards/title.md)
 - 📦 [Update card](docs/cards/update.md)
 - 🧹 [Vacuum card](docs/cards/vacuum.md)
@@ -146,6 +147,12 @@ You can build the `mushroom.js` file in `dist` folder by running the build comma
 ```sh
 npm run build
 ```
+
+### Releasing
+
+1. Bump the version in `package.json` (for example with `npm version patch`) so the bundle reports the right release number in Home Assistant.
+2. Run `npm run build` to generate `dist/mushroom.js` for the new version.
+3. Create a Git tag such as `vX.Y.Z` that matches the package version and publish a GitHub release that uploads the freshly built `dist/mushroom.js` asset.
 
 ### Translations
 
