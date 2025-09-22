@@ -24,6 +24,7 @@ import {
 import { computeCssColor } from "../../ha/common/color/compute-color";
 import { isTemplate } from "../../ha/common/string/has-template";
 import { MushroomBaseElement } from "../../utils/base-element";
+import { cardStyle } from "../../utils/card-styles";
 import { CacheManager } from "../../utils/cache-manager";
 import { registerCustomCard } from "../../utils/custom-cards";
 import {
@@ -551,6 +552,7 @@ export class MushroomDiyTemplateCard
   static override get styles() {
     return [
       super.styles,
+      cardStyle,
       weatherSVGStyles,
       css`
       :host {
@@ -574,9 +576,6 @@ export class MushroomDiyTemplateCard
         transition:
           box-shadow 180ms ease-in-out,
           border-color 180ms ease-in-out;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
       }
       [role="button"] {
         cursor: pointer;
