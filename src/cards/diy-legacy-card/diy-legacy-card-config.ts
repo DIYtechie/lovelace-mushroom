@@ -7,7 +7,7 @@ import {
   string,
   union,
 } from "superstruct";
-import { ActionConfig, actionConfigStruct, LovelaceCardConfig } from "../../ha";
+import { LovelaceCardConfig } from "../../ha";
 import {
   ActionsSharedConfig,
   actionsSharedConfigStruct,
@@ -18,7 +18,7 @@ import {
 } from "../../shared/config/appearance-config";
 import { lovelaceCardConfigStruct } from "../../shared/config/lovelace-card-config";
 
-export type LegacyTemplateCardConfig = LovelaceCardConfig &
+export type DiyLegacyCardConfig = LovelaceCardConfig &
   AppearanceSharedConfig &
   ActionsSharedConfig & {
     entity?: string;
@@ -31,10 +31,9 @@ export type LegacyTemplateCardConfig = LovelaceCardConfig &
     picture?: string;
     multiline_secondary?: boolean;
     entity_id?: string | string[];
-    icon_tap_action?: ActionConfig;
   };
 
-export const legacyTemplateCardConfigStruct = assign(
+export const diyLegacyCardConfigStruct = assign(
   lovelaceCardConfigStruct,
   assign(appearanceSharedConfigStruct, actionsSharedConfigStruct),
   object({
@@ -48,6 +47,5 @@ export const legacyTemplateCardConfigStruct = assign(
     picture: optional(string()),
     multiline_secondary: optional(boolean()),
     entity_id: optional(union([string(), array(string())])),
-    icon_tap_action: optional(actionConfigStruct),
   })
 );

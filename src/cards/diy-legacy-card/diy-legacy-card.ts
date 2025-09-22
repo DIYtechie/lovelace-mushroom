@@ -9,7 +9,6 @@ import {
 } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { classMap } from "lit/directives/class-map.js";
-import { ifDefined } from "lit/directives/if-defined.js";
 import { styleMap } from "lit/directives/style-map.js";
 import hash from "object-hash/dist/object_hash";
 import {
@@ -38,10 +37,10 @@ import { registerCustomCard } from "../../utils/custom-cards";
 import { getWeatherSvgIcon } from "../../utils/icons/weather-icon";
 import { weatherSVGStyles } from "../../utils/weather";
 import {
-  LEGACY_TEMPLATE_CARD_EDITOR_NAME,
-  LEGACY_TEMPLATE_CARD_NAME,
+  DIY_LEGACY_CARD_EDITOR_NAME,
+  DIY_LEGACY_CARD_NAME,
 } from "./const";
-import { LegacyTemplateCardConfig } from "./legacy-template-card-config";
+import { DiyLegacyCardConfig } from "./diy-legacy-card-config";
 
 const templateCache = new CacheManager<TemplateResults>(1000);
 
@@ -60,30 +59,30 @@ const TEMPLATE_KEYS = [
 ] as const;
 type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
-@customElement(LEGACY_TEMPLATE_CARD_NAME)
-export class LegacyTemplateCard
+@customElement(DIY_LEGACY_CARD_NAME)
+export class DiyLegacyCard
   extends MushroomBaseElement
   implements LovelaceCard
 {
   public static async getConfigElement(): Promise<LovelaceCardEditor> {
-    await import("./legacy-template-card-editor");
+    await import("./diy-legacy-card-editor");
     return document.createElement(
-      LEGACY_TEMPLATE_CARD_EDITOR_NAME
+      DIY_LEGACY_CARD_EDITOR_NAME
     ) as LovelaceCardEditor;
   }
 
   public static async getStubConfig(
     _hass: HomeAssistant
-  ): Promise<LegacyTemplateCardConfig> {
+  ): Promise<DiyLegacyCardConfig> {
     return {
-      type: `custom:${LEGACY_TEMPLATE_CARD_NAME}`,
+      type: `custom:${DIY_LEGACY_CARD_NAME}`,
       primary: "Hello, {{user}}",
       secondary: "How are you?",
       icon: "mdi:home",
     };
   }
 
-  @state() private _config?: LegacyTemplateCardConfig;
+  @state() private _config?: DiyLegacyCardConfig;
 
   @state() private _templateResults?: TemplateResults;
 
@@ -145,7 +144,7 @@ export class LegacyTemplateCard
     return options;
   }
 
-  setConfig(config: LegacyTemplateCardConfig): void {
+  setConfig(config: DiyLegacyCardConfig): void {
     TEMPLATE_KEYS.forEach((key) => {
       if (
         this._config?.[key] !== config[key] ||
@@ -154,7 +153,7 @@ export class LegacyTemplateCard
         this._tryDisconnectKey(key);
       }
     });
-    const mergedConfig: LegacyTemplateCardConfig = {
+    this._config = {
       tap_action: {
         action: "toggle",
       },
@@ -163,12 +162,6 @@ export class LegacyTemplateCard
       },
       ...config,
     };
-    if (!mergedConfig.icon_tap_action && mergedConfig.entity) {
-      mergedConfig.icon_tap_action = {
-        action: "toggle",
-      };
-    }
-    this._config = mergedConfig;
   }
 
   public connectedCallback() {
@@ -210,22 +203,6 @@ export class LegacyTemplateCard
     handleAction(this, this.hass!, this._config!, ev.detail.action!);
   }
 
-  private _handleIconAction(ev: ActionHandlerEvent) {
-    ev.stopPropagation();
-    if (!this._config?.icon_tap_action) {
-      return;
-    }
-    handleAction(
-      this,
-      this.hass!,
-      {
-        entity: this._config.entity,
-        tap_action: this._config.icon_tap_action,
-      },
-      ev.detail.action!
-    );
-  }
-
   public isTemplate(key: TemplateKey) {
     const value = this._config?.[key];
     return value?.includes("{");
@@ -235,10 +212,6 @@ export class LegacyTemplateCard
     return this.isTemplate(key)
       ? this._templateResults?.[key]?.result?.toString()
       : this._config?.[key];
-  }
-
-  private get _hasIconAction() {
-    return hasAction(this._config?.icon_tap_action);
   }
 
   protected render() {
@@ -289,19 +262,7 @@ export class LegacyTemplateCard
             ${picture
               ? this.renderPicture(picture)
               : weatherSvg
-                ? html`
-                    <div
-                      slot="icon"
-                      role=${ifDefined(this._hasIconAction ? "button" : undefined)}
-                      tabindex=${ifDefined(this._hasIconAction ? "0" : undefined)}
-                      @action=${this._handleIconAction}
-                      .actionHandler=${actionHandler({
-                        disabled: !this._hasIconAction,
-                      })}
-                    >
-                      ${weatherSvg}
-                    </div>
-                  `
+                ? html`<div slot="icon">${weatherSvg}</div>`
                 : icon
                   ? this.renderIcon(icon, iconColor)
                   : nothing}
@@ -325,12 +286,6 @@ export class LegacyTemplateCard
       <mushroom-shape-avatar
         slot="icon"
         .picture_url=${(this.hass as any).hassUrl(picture)}
-        role=${ifDefined(this._hasIconAction ? "button" : undefined)}
-        tabindex=${ifDefined(this._hasIconAction ? "0" : undefined)}
-        @action=${this._handleIconAction}
-        .actionHandler=${actionHandler({
-          disabled: !this._hasIconAction,
-        })}
       ></mushroom-shape-avatar>
     `;
   }
@@ -343,16 +298,7 @@ export class LegacyTemplateCard
       iconStyle["--shape-color"] = `rgba(${iconRgbColor}, 0.2)`;
     }
     return html`
-      <mushroom-shape-icon
-        style=${styleMap(iconStyle)}
-        slot="icon"
-        role=${ifDefined(this._hasIconAction ? "button" : undefined)}
-        tabindex=${ifDefined(this._hasIconAction ? "0" : undefined)}
-        @action=${this._handleIconAction}
-        .actionHandler=${actionHandler({
-          disabled: !this._hasIconAction,
-        })}
-      >
+      <mushroom-shape-icon style=${styleMap(iconStyle)} slot="icon">
         <ha-state-icon .hass=${this.hass} .icon=${icon}></ha-state-icon>
       </mushroom-shape-icon>
     `;

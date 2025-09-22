@@ -8,11 +8,11 @@ import { MushroomBaseElement } from "../../utils/base-element";
 import { GENERIC_LABELS } from "../../utils/form/generic-fields";
 import { HaFormSchema } from "../../utils/form/ha-form";
 import { loadHaComponents } from "../../utils/loader";
-import { LEGACY_TEMPLATE_CARD_EDITOR_NAME } from "./const";
+import { DIY_LEGACY_CARD_EDITOR_NAME } from "./const";
 import {
-  LegacyTemplateCardConfig,
-  legacyTemplateCardConfigStruct,
-} from "./legacy-template-card-config";
+  DiyLegacyCardConfig,
+  diyLegacyCardConfigStruct,
+} from "./diy-legacy-card-config";
 
 export const TEMPLATE_LABELS = [
   "badge_icon",
@@ -64,23 +64,22 @@ const SCHEMA: HaFormSchema[] = [
     ],
   },
   ...computeActionsFormSchema(),
-  { name: "icon_tap_action", selector: { ui_action: {} } },
 ];
 
-@customElement(LEGACY_TEMPLATE_CARD_EDITOR_NAME)
+@customElement(DIY_LEGACY_CARD_EDITOR_NAME)
 export class TemplateCardEditor
   extends MushroomBaseElement
   implements LovelaceCardEditor
 {
-  @state() private _config?: LegacyTemplateCardConfig;
+  @state() private _config?: DiyLegacyCardConfig;
 
   connectedCallback() {
     super.connectedCallback();
     void loadHaComponents();
   }
 
-  public setConfig(config: LegacyTemplateCardConfig): void {
-    assert(config, legacyTemplateCardConfigStruct);
+  public setConfig(config: DiyLegacyCardConfig): void {
+    assert(config, diyLegacyCardConfigStruct);
     this._config = config;
   }
 

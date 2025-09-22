@@ -20,6 +20,7 @@ import "./cards/entity-card/entity-card";
 import "./cards/fan-card/fan-card";
 import "./cards/humidifier-card/humidifier-card";
 import "./cards/legacy-template-card/legacy-template-card";
+import "./cards/diy-legacy-card/diy-legacy-card";
 import "./cards/diy-template-card/diy-template-card";
 import "./cards/light-card/light-card";
 import "./cards/lock-card/lock-card";
