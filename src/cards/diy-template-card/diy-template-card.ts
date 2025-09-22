@@ -8,13 +8,13 @@ import {
   DOMAINS_TOGGLE,
   handleAction,
   hasAction,
-  HomeAssistant,
   LovelaceCard,
   LovelaceCardEditor,
   LovelaceGridOptions,
   LovelaceLayoutOptions,
   RenderTemplateResult,
   subscribeRenderTemplate,
+  HomeAssistant,
 } from "../../ha";
 import {
   css,
@@ -34,8 +34,9 @@ import "../../shared/state-info";
 import "../../shared/state-item";
 import { computeAppearance } from "../../utils/appearance";
 import { MushroomBaseElement } from "../../utils/base-element";
-import { CacheManager } from "../../utils/cache-manager";
 import { cardStyle } from "../../utils/card-styles";
+import { CacheManager } from "../../utils/cache-manager";
+
 import { computeRgbColor } from "../../utils/colors";
 import { getWeatherSvgIcon } from "../../utils/icons/weather-icon";
 import { weatherSVGStyles } from "../../utils/weather";
@@ -202,10 +203,6 @@ export class MushroomDiyTemplateCard
     }
   }
 
-  private _computeCacheKey() {
-    return hash(this._config);
-  }
-
   protected willUpdate(_changedProperties: PropertyValues): void {
     super.willUpdate(_changedProperties);
     if (!this._config) {
@@ -257,6 +254,7 @@ export class MushroomDiyTemplateCard
   }
 
   protected render() {
+
     if (!this._config || !this.hass) {
       return nothing;
     }
@@ -398,12 +396,155 @@ export class MushroomDiyTemplateCard
 
   protected updated(changedProps: PropertyValues): void {
     super.updated(changedProps);
+
+    if (!this._config || !this.hass) {
+      return nothing;
+    }
+
+    const icon = this.getValue("icon");
+    const iconColor = this.getValue("icon_color");
+    const badgeIcon = this.getValue("badge_icon");
+    const badgeColor = this.getValue("badge_color");
+    const primary = this.getValue("primary");
+    const secondary = this.getValue("secondary");
+    const picture = this.getValue("picture");
+
+    const multiline_secondary = this._config.multiline_secondary;
+
+    const rtl = computeRTL(this.hass);
+
+    const appearance = computeAppearance({
+      fill_container: this._config.fill_container,
+      layout: this._config.layout,
+      icon_type: Boolean(picture)
+        ? "entity-picture"
+        : Boolean(icon)
+        ? "icon"
+        : "none",
+      primary_info: Boolean(primary) ? "name" : "none",
+      secondary_info: Boolean(secondary) ? "state" : "none",
+    });
+
+    const weatherSvg = getWeatherSvgIcon(icon);
+
+    return html`
+      <ha-card
+        class=${classMap({ "fill-container": appearance.fill_container })}
+      >
+        <mushroom-card .appearance=${appearance} ?rtl=${rtl}>
+          <mushroom-state-item
+            ?rtl=${rtl}
+            .appearance=${appearance}
+            @action=${this._handleAction}
+            .actionHandler=${actionHandler({
+              hasHold: hasAction(this._config.hold_action),
+              hasDoubleClick: hasAction(this._config.double_tap_action),
+            })}
+          >
+            ${picture
+              ? this.renderPicture(picture)
+              : weatherSvg
+              ? html`
+                  <div
+                    slot="icon"
+                    role=${ifDefined(this._hasIconAction ? "button" : undefined)}
+                    tabindex=${ifDefined(this._hasIconAction ? "0" : undefined)}
+                    @action=${this._handleIconAction}
+                    .actionHandler=${actionHandler({
+                      disabled: !this._hasIconAction,
+                      hasHold: hasAction(this._config?.icon_hold_action),
+                      hasDoubleClick: hasAction(
+                        this._config?.icon_double_tap_action
+                      ),
+                    })}
+                  >
+                    ${weatherSvg}
+                  </div>
+                `
+              : icon
+              ? this.renderIcon(icon, iconColor)
+              : nothing}
+            ${(icon || picture) && badgeIcon
+              ? this.renderBadgeIcon(badgeIcon, badgeColor)
+              : undefined}
+            <mushroom-state-info
+              slot="info"
+              .primary=${primary}
+              .secondary=${secondary}
+              .multiline_secondary=${multiline_secondary}
+            ></mushroom-state-info>
+          </mushroom-state-item>
+        </mushroom-card>
+      </ha-card>
+    `;
+  }
+
+
+  renderPicture(picture: string): TemplateResult {
+    return html`
+      <mushroom-shape-avatar
+        slot="icon"
+        .picture_url=${(this.hass as any).hassUrl(picture)}
+        role=${ifDefined(this._hasIconAction ? "button" : undefined)}
+        tabindex=${ifDefined(this._hasIconAction ? "0" : undefined)}
+        @action=${this._handleIconAction}
+        .actionHandler=${actionHandler({
+          disabled: !this._hasIconAction,
+          hasHold: hasAction(this._config?.icon_hold_action),
+          hasDoubleClick: hasAction(this._config?.icon_double_tap_action),
+        })}
+      ></mushroom-shape-avatar>
+    `;
+  }
+
+  renderIcon(icon: string, iconColor?: string) {
+    const iconStyle: Record<string, string> = {};
+    if (iconColor) {
+      const iconRgbColor = computeRgbColor(iconColor);
+      iconStyle["--icon-color"] = `rgb(${iconRgbColor})`;
+      iconStyle["--shape-color"] = `rgba(${iconRgbColor}, 0.2)`;
+    }
+    return html`
+      <mushroom-shape-icon
+        style=${styleMap(iconStyle)}
+        slot="icon"
+        role=${ifDefined(this._hasIconAction ? "button" : undefined)}
+        tabindex=${ifDefined(this._hasIconAction ? "0" : undefined)}
+        @action=${this._handleIconAction}
+        .actionHandler=${actionHandler({
+          disabled: !this._hasIconAction,
+          hasHold: hasAction(this._config?.icon_hold_action),
+          hasDoubleClick: hasAction(this._config?.icon_double_tap_action),
+        })}
+      >
+        <ha-state-icon .hass=${this.hass} .icon=${icon}></ha-state-icon>
+      </mushroom-shape-icon>
+    `;
+  }
+
+  renderBadgeIcon(badge: string, badgeColor?: string) {
+    const badgeStyle: Record<string, string> = {};
+    if (badgeColor) {
+      const iconRgbColor = computeRgbColor(badgeColor);
+      badgeStyle["--main-color"] = `rgba(${iconRgbColor})`;
+    }
+    return html`
+      <mushroom-badge-icon
+        slot="badge"
+        .icon=${badge}
+        style=${styleMap(badgeStyle)}
+      ></mushroom-badge-icon>
+    `;
+  }
+
+  protected updated(changedProps: PropertyValues): void {
+    super.updated(changedProps);
     if (!this._config || !this.hass) {
       return;
     }
-
     this._tryConnect();
   }
+
 
   private async _tryConnect(): Promise<void> {
     TEMPLATE_KEYS.forEach((key) => {
@@ -444,8 +585,8 @@ export class MushroomDiyTemplateCard
       this._unsubRenderTemplates.set(key, sub);
       await sub;
     } catch (_err) {
-      const result = {
-        result: this._config[key] ?? "",
+      const result: RenderTemplateResult = {
+        result: (this._config?.[key] as string) ?? "",
         listeners: {
           all: false,
           domains: [],
@@ -460,6 +601,7 @@ export class MushroomDiyTemplateCard
       this._unsubRenderTemplates.delete(key);
     }
   }
+
   private async _tryDisconnect(): Promise<void> {
     TEMPLATE_KEYS.forEach((key) => {
       this._tryDisconnectKey(key);
@@ -478,7 +620,7 @@ export class MushroomDiyTemplateCard
       this._unsubRenderTemplates.delete(key);
     } catch (err: any) {
       if (err.code === "not_found" || err.code === "template_error") {
-        // If we get here, the connection was probably already closed. Ignore.
+        // Connection probably already closed
       } else {
         throw err;
       }
@@ -506,4 +648,18 @@ export class MushroomDiyTemplateCard
       `,
     ];
   }
+
+
+  private _computeCacheKey(): string {
+    // Bevar eksisterende cache-nøglelogik, hvis du allerede havde den.
+    // Hvis ikke, giver denne en stabil nøgle pr. config + entity.
+    return hash({
+      entity: this._config?.entity,
+      config: TEMPLATE_KEYS.reduce((acc, key) => {
+        acc[key] = this._config?.[key];
+        return acc;
+      }, {} as Record<string, unknown>),
+    });
+  }
+
 }
