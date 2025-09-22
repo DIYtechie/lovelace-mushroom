@@ -1,11 +1,20 @@
 import { UnsubscribeFunc } from "home-assistant-js-websocket";
 import {
-  ActionConfig,
+  css,
+  CSSResultGroup,
+  html,
+  nothing,
+  PropertyValues,
+  TemplateResult,
+} from "lit";
+import { customElement, property, state } from "lit/decorators.js";
+import { classMap } from "lit/directives/class-map.js";
+import { styleMap } from "lit/directives/style-map.js";
+import hash from "object-hash/dist/object_hash";
+import {
   actionHandler,
   ActionHandlerEvent,
-  computeDomain,
   computeRTL,
-  DOMAINS_TOGGLE,
   handleAction,
   hasAction,
   HomeAssistant,
@@ -16,19 +25,6 @@ import {
   RenderTemplateResult,
   subscribeRenderTemplate,
 } from "../../ha";
-import {
-  css,
-  CSSResultGroup,
-  html,
-  nothing,
-  PropertyValues,
-  TemplateResult,
-} from "lit";
-import { customElement, property, state } from "lit/decorators.js";
-import { classMap } from "lit/directives/class-map.js";
-import { ifDefined } from "lit/directives/if-defined.js";
-import { styleMap } from "lit/directives/style-map.js";
-import hash from "object-hash/dist/object_hash";
 import "../../shared/shape-icon";
 import "../../shared/state-info";
 import "../../shared/state-item";
@@ -37,9 +33,14 @@ import { MushroomBaseElement } from "../../utils/base-element";
 import { CacheManager } from "../../utils/cache-manager";
 import { cardStyle } from "../../utils/card-styles";
 import { computeRgbColor } from "../../utils/colors";
+import { registerCustomCard } from "../../utils/custom-cards";
 import { getWeatherSvgIcon } from "../../utils/icons/weather-icon";
 import { weatherSVGStyles } from "../../utils/weather";
-import { LegacyTemplateCardConfig } from "../legacy-template-card/legacy-template-card-config";
+import {
+  DIY_LEGACY_CARD_EDITOR_NAME,
+  DIY_LEGACY_CARD_NAME,
+} from "./const";
+import { DiyLegacyCardConfig } from "./diy-legacy-card-config";
 
 const templateCache = new CacheManager<TemplateResults>(1000);
 
@@ -58,48 +59,30 @@ const TEMPLATE_KEYS = [
 ] as const;
 type TemplateKey = (typeof TEMPLATE_KEYS)[number];
 
-const DIY_TEMPLATE_CARD_NAME = "mushroom-diy-template-card";
-const DIY_TEMPLATE_CARD_EDITOR_NAME = "mushroom-template-card-editor";
-
-export const getEntityDefaultTileIconAction = (entityId: string) => {
-  const domain = computeDomain(entityId);
-  const supportsIconAction =
-    DOMAINS_TOGGLE.has(domain) ||
-    ["button", "input_button", "scene"].includes(domain);
-
-  return supportsIconAction ? "toggle" : "none";
-};
-
-type DiyTemplateCardConfig = LegacyTemplateCardConfig & {
-  icon_tap_action?: ActionConfig;
-  icon_hold_action?: ActionConfig;
-  icon_double_tap_action?: ActionConfig;
-};
-
-@customElement(DIY_TEMPLATE_CARD_NAME)
-export class MushroomDiyTemplateCard
+@customElement(DIY_LEGACY_CARD_NAME)
+export class DiyLegacyCard
   extends MushroomBaseElement
   implements LovelaceCard
 {
   public static async getConfigElement(): Promise<LovelaceCardEditor> {
-    await import("../template-card/template-card-editor");
+    await import("./diy-legacy-card-editor");
     return document.createElement(
-      DIY_TEMPLATE_CARD_EDITOR_NAME
+      DIY_LEGACY_CARD_EDITOR_NAME
     ) as LovelaceCardEditor;
   }
 
   public static async getStubConfig(
     _hass: HomeAssistant
-  ): Promise<DiyTemplateCardConfig> {
+  ): Promise<DiyLegacyCardConfig> {
     return {
-      type: `custom:${DIY_TEMPLATE_CARD_NAME}`,
+      type: `custom:${DIY_LEGACY_CARD_NAME}`,
       primary: "Hello, {{user}}",
       secondary: "How are you?",
       icon: "mdi:home",
     };
   }
 
-  @state() private _config?: DiyTemplateCardConfig;
+  @state() private _config?: DiyLegacyCardConfig;
 
   @state() private _templateResults?: TemplateResults;
 
@@ -161,7 +144,7 @@ export class MushroomDiyTemplateCard
     return options;
   }
 
-  setConfig(config: DiyTemplateCardConfig): void {
+  setConfig(config: DiyLegacyCardConfig): void {
     TEMPLATE_KEYS.forEach((key) => {
       if (
         this._config?.[key] !== config[key] ||
@@ -179,12 +162,6 @@ export class MushroomDiyTemplateCard
       },
       ...config,
     };
-
-    if (this._config.entity && !this._config.icon_tap_action) {
-      this._config.icon_tap_action = {
-        action: getEntityDefaultTileIconAction(this._config.entity),
-      };
-    }
   }
 
   public connectedCallback() {
@@ -226,17 +203,6 @@ export class MushroomDiyTemplateCard
     handleAction(this, this.hass!, this._config!, ev.detail.action!);
   }
 
-  private _handleIconAction(ev: ActionHandlerEvent) {
-    ev.stopPropagation();
-    const config = {
-      entity: this._config!.entity,
-      tap_action: this._config!.icon_tap_action,
-      hold_action: this._config!.icon_hold_action,
-      double_tap_action: this._config!.icon_double_tap_action,
-    };
-    handleAction(this, this.hass!, config, ev.detail.action!);
-  }
-
   public isTemplate(key: TemplateKey) {
     const value = this._config?.[key];
     return value?.includes("{");
@@ -246,14 +212,6 @@ export class MushroomDiyTemplateCard
     return this.isTemplate(key)
       ? this._templateResults?.[key]?.result?.toString()
       : this._config?.[key];
-  }
-
-  private get _hasIconAction() {
-    return (
-      hasAction(this._config?.icon_tap_action) ||
-      hasAction(this._config?.icon_hold_action) ||
-      hasAction(this._config?.icon_double_tap_action)
-    );
   }
 
   protected render() {
@@ -304,23 +262,7 @@ export class MushroomDiyTemplateCard
             ${picture
               ? this.renderPicture(picture)
               : weatherSvg
-                ? html`
-                    <div
-                      slot="icon"
-                      role=${ifDefined(this._hasIconAction ? "button" : undefined)}
-                      tabindex=${ifDefined(this._hasIconAction ? "0" : undefined)}
-                      @action=${this._handleIconAction}
-                      .actionHandler=${actionHandler({
-                        disabled: !this._hasIconAction,
-                        hasHold: hasAction(this._config?.icon_hold_action),
-                        hasDoubleClick: hasAction(
-                          this._config?.icon_double_tap_action
-                        ),
-                      })}
-                    >
-                      ${weatherSvg}
-                    </div>
-                  `
+                ? html`<div slot="icon">${weatherSvg}</div>`
                 : icon
                   ? this.renderIcon(icon, iconColor)
                   : nothing}
@@ -344,14 +286,6 @@ export class MushroomDiyTemplateCard
       <mushroom-shape-avatar
         slot="icon"
         .picture_url=${(this.hass as any).hassUrl(picture)}
-        role=${ifDefined(this._hasIconAction ? "button" : undefined)}
-        tabindex=${ifDefined(this._hasIconAction ? "0" : undefined)}
-        @action=${this._handleIconAction}
-        .actionHandler=${actionHandler({
-          disabled: !this._hasIconAction,
-          hasHold: hasAction(this._config?.icon_hold_action),
-          hasDoubleClick: hasAction(this._config?.icon_double_tap_action),
-        })}
       ></mushroom-shape-avatar>
     `;
   }
@@ -364,18 +298,7 @@ export class MushroomDiyTemplateCard
       iconStyle["--shape-color"] = `rgba(${iconRgbColor}, 0.2)`;
     }
     return html`
-      <mushroom-shape-icon
-        style=${styleMap(iconStyle)}
-        slot="icon"
-        role=${ifDefined(this._hasIconAction ? "button" : undefined)}
-        tabindex=${ifDefined(this._hasIconAction ? "0" : undefined)}
-        @action=${this._handleIconAction}
-        .actionHandler=${actionHandler({
-          disabled: !this._hasIconAction,
-          hasHold: hasAction(this._config?.icon_hold_action),
-          hasDoubleClick: hasAction(this._config?.icon_double_tap_action),
-        })}
-      >
+      <mushroom-shape-icon style=${styleMap(iconStyle)} slot="icon">
         <ha-state-icon .hass=${this.hass} .icon=${icon}></ha-state-icon>
       </mushroom-shape-icon>
     `;
