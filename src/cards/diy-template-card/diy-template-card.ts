@@ -1,4 +1,5 @@
 import { UnsubscribeFunc } from "home-assistant-js-websocket";
+
 import {
   ActionConfig,
   actionHandler,
@@ -8,7 +9,6 @@ import {
   DOMAINS_TOGGLE,
   handleAction,
   hasAction,
-  HomeAssistant,
   LovelaceCard,
   LovelaceCardEditor,
   LovelaceGridOptions,
@@ -34,16 +34,21 @@ import "../../shared/state-info";
 import "../../shared/state-item";
 import { computeAppearance } from "../../utils/appearance";
 import { MushroomBaseElement } from "../../utils/base-element";
-import { CacheManager } from "../../utils/cache-manager";
 import { cardStyle } from "../../utils/card-styles";
+import { CacheManager } from "../../utils/cache-manager";
+
+import { cardStyle } from "../../utils/card-styles";
+
 import { computeRgbColor } from "../../utils/colors";
 import { registerCustomCard } from "../../utils/custom-cards";
 import { getWeatherSvgIcon } from "../../utils/icons/weather-icon";
 import { weatherSVGStyles } from "../../utils/weather";
+
 import { LegacyTemplateCardConfig } from "../legacy-template-card/legacy-template-card-config";
 
 const DIY_TEMPLATE_CARD_NAME = "mushroom-diy-template-card";
 const DIY_TEMPLATE_CARD_EDITOR_NAME = "mushroom-template-card-editor";
+
 
 export const getEntityDefaultTileIconAction = (entityId: string) => {
   const domain = computeDomain(entityId);
@@ -69,6 +74,7 @@ type TemplateResults = Partial<
 
 const TEMPLATE_KEYS = [
   "icon",
+
   "icon_color",
   "badge_color",
   "badge_icon",
@@ -85,6 +91,7 @@ type DiyTemplateCardConfig = LegacyTemplateCardConfig & {
 };
 
 @customElement(DIY_TEMPLATE_CARD_NAME)
+
 export class MushroomDiyTemplateCard
   extends MushroomBaseElement
   implements LovelaceCard
@@ -122,7 +129,9 @@ export class MushroomDiyTemplateCard
   public getCardSize(): number | Promise<number> {
     let height = 1;
     if (!this._config) return height;
+
     const appearance = computeAppearance(this._config);
+
     if (appearance.layout === "vertical") {
       height += 1;
     }
@@ -135,7 +144,9 @@ export class MushroomDiyTemplateCard
       grid_rows: 1,
     };
     if (!this._config) return options;
+
     const appearance = computeAppearance(this._config);
+
     if (appearance.layout === "vertical") {
       options.grid_rows! += 1;
     }
@@ -150,13 +161,17 @@ export class MushroomDiyTemplateCard
 
   // For HA < 2024.11
   public getGridOptions(): LovelaceGridOptions {
+
     // No min and max because the content can be dynamic
+
     const options: LovelaceGridOptions = {
       columns: 6,
       rows: 1,
     };
     if (!this._config) return options;
+
     const appearance = computeAppearance(this._config);
+
     if (appearance.layout === "vertical") {
       options.rows! += 1;
     }
@@ -168,6 +183,7 @@ export class MushroomDiyTemplateCard
     }
     return options;
   }
+
 
   setConfig(config: DiyTemplateCardConfig): void {
     TEMPLATE_KEYS.forEach((key) => {
@@ -195,6 +211,7 @@ export class MushroomDiyTemplateCard
     }
   }
 
+
   public connectedCallback() {
     super.connectedCallback();
     this._tryConnect();
@@ -210,8 +227,33 @@ export class MushroomDiyTemplateCard
     }
   }
 
-  private _computeCacheKey() {
-    return hash(this._config);
+  public setConfig(config: TemplateCardConfig): void {
+    const migratedConfig = migrateTemplateCardConfig(config);
+
+    TEMPLATE_KEYS.forEach((key) => {
+      if (
+        this._config?.[key] !== migratedConfig[key] ||
+        this._config?.entity != migratedConfig.entity
+      ) {
+        this._tryDisconnectKey(key);
+      }
+    });
+
+    this._config = {
+      tap_action: {
+        action: "toggle",
+      },
+      hold_action: {
+        action: "more-info",
+      },
+      ...migratedConfig,
+    };
+
+    if (this._config.entity && !this._config.icon_tap_action) {
+      this._config.icon_tap_action = {
+        action: getEntityDefaultTileIconAction(this._config.entity),
+      };
+    }
   }
 
   protected willUpdate(_changedProperties: PropertyValues): void {
@@ -413,6 +455,7 @@ export class MushroomDiyTemplateCard
         ${weatherSvg}
       </div>
     `;
+
   }
 
   private async _tryConnect(): Promise<void> {
@@ -430,6 +473,8 @@ export class MushroomDiyTemplateCard
     ) {
       return;
     }
+
+
 
     try {
       const sub = subscribeRenderTemplate(
@@ -455,7 +500,7 @@ export class MushroomDiyTemplateCard
       await sub;
     } catch (_err) {
       const result = {
-        result: this._config[key] ?? "",
+        result: value ?? "",
         listeners: {
           all: false,
           domains: [],
@@ -496,17 +541,20 @@ export class MushroomDiyTemplateCard
     }
   }
 
+
   static get styles(): CSSResultGroup {
     return [
       super.styles,
       cardStyle,
       css`
         mushroom-state-item {
+
           cursor: pointer;
         }
         mushroom-shape-icon {
           --icon-color: rgb(var(--rgb-disabled));
           --shape-color: rgba(var(--rgb-disabled), 0.2);
+
         }
         svg {
           width: var(--icon-size);
