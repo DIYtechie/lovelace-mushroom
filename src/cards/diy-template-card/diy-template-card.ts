@@ -1,16 +1,10 @@
 import { UnsubscribeFunc } from "home-assistant-js-websocket";
-import { css, html, nothing, PropertyValues } from "lit";
-import { customElement, state } from "lit/decorators.js";
-import { classMap } from "lit/directives/class-map.js";
-import { ifDefined } from "lit/directives/if-defined.js";
-import { styleMap } from "lit/directives/style-map.js";
-import memoizeOne from "memoize-one";
-import hash from "object-hash/dist/object_hash";
 import {
+  ActionConfig,
   actionHandler,
   ActionHandlerEvent,
-  atLeastHaVersion,
   computeDomain,
+  computeRTL,
   DOMAINS_TOGGLE,
   handleAction,
   hasAction,
@@ -18,20 +12,54 @@ import {
   LovelaceCard,
   LovelaceCardEditor,
   LovelaceGridOptions,
+  LovelaceLayoutOptions,
   RenderTemplateResult,
   subscribeRenderTemplate,
 } from "../../ha";
-import { computeCssColor } from "../../ha/common/color/compute-color";
-import { isTemplate } from "../../ha/common/string/has-template";
+import {
+  css,
+  CSSResultGroup,
+  html,
+  nothing,
+  PropertyValues,
+  TemplateResult,
+} from "lit";
+import { customElement, property, state } from "lit/decorators.js";
+import { classMap } from "lit/directives/class-map.js";
+import { ifDefined } from "lit/directives/if-defined.js";
+import { styleMap } from "lit/directives/style-map.js";
+import hash from "object-hash/dist/object_hash";
+import "../../shared/shape-icon";
+import "../../shared/state-info";
+import "../../shared/state-item";
+import { computeAppearance } from "../../utils/appearance";
 import { MushroomBaseElement } from "../../utils/base-element";
 import { CacheManager } from "../../utils/cache-manager";
-import { registerCustomCard } from "../../utils/custom-cards";
-import {
-  migrateTemplateCardConfig,
-  TemplateCardConfig,
-} from "../template-card/template-card-config";
+import { cardStyle } from "../../utils/card-styles";
+import { computeRgbColor } from "../../utils/colors";
 import { getWeatherSvgIcon } from "../../utils/icons/weather-icon";
 import { weatherSVGStyles } from "../../utils/weather";
+import { LegacyTemplateCardConfig } from "../legacy-template-card/legacy-template-card-config";
+
+const templateCache = new CacheManager<TemplateResults>(1000);
+
+type TemplateResults = Partial<
+  Record<TemplateKey, RenderTemplateResult | undefined>
+>;
+
+const TEMPLATE_KEYS = [
+  "icon",
+  "icon_color",
+  "badge_color",
+  "badge_icon",
+  "primary",
+  "secondary",
+  "picture",
+] as const;
+type TemplateKey = (typeof TEMPLATE_KEYS)[number];
+
+const DIY_TEMPLATE_CARD_NAME = "mushroom-diy-template-card";
+const DIY_TEMPLATE_CARD_EDITOR_NAME = "mushroom-template-card-editor";
 
 export const getEntityDefaultTileIconAction = (entityId: string) => {
   const domain = computeDomain(entityId);
@@ -42,37 +70,13 @@ export const getEntityDefaultTileIconAction = (entityId: string) => {
   return supportsIconAction ? "toggle" : "none";
 };
 
-registerCustomCard({
-  type: "mushroom-diy-template-card",
-  name: "Mushroom DIY Template",
-  description: "Template-based card that respects Mushroom theming variables",
-});
+type DiyTemplateCardConfig = LegacyTemplateCardConfig & {
+  icon_tap_action?: ActionConfig;
+  icon_hold_action?: ActionConfig;
+  icon_double_tap_action?: ActionConfig;
+};
 
-const templateCache = new CacheManager<TemplateResults>(1000);
-
-type TemplateResults = Partial<
-  Record<TemplateKey, RenderTemplateResult | undefined>
->;
-
-const TEMPLATE_KEYS = [
-  "icon",
-  "color",
-  "primary",
-  "secondary",
-  "picture",
-  "badge_icon",
-  "badge_color",
-  "badge_text",
-] as const;
-
-type TemplateKey = (typeof TEMPLATE_KEYS)[number];
-
-export interface LovelaceCardFeatureContext {
-  entity_id?: string;
-  area_id?: string;
-}
-
-@customElement("mushroom-diy-template-card")
+@customElement(DIY_TEMPLATE_CARD_NAME)
 export class MushroomDiyTemplateCard
   extends MushroomBaseElement
   implements LovelaceCard
@@ -80,20 +84,22 @@ export class MushroomDiyTemplateCard
   public static async getConfigElement(): Promise<LovelaceCardEditor> {
     await import("../template-card/template-card-editor");
     return document.createElement(
-      "mushroom-template-card-editor"
+      DIY_TEMPLATE_CARD_EDITOR_NAME
     ) as LovelaceCardEditor;
   }
 
-  public static getStubConfig(): TemplateCardConfig {
+  public static async getStubConfig(
+    _hass: HomeAssistant
+  ): Promise<DiyTemplateCardConfig> {
     return {
-      type: `custom:mushroom-diy-template-card`,
+      type: `custom:${DIY_TEMPLATE_CARD_NAME}`,
       primary: "Hello, {{user}}",
       secondary: "How are you?",
-      icon: "mdi:mushroom",
+      icon: "mdi:home",
     };
   }
 
-  @state() private _config?: TemplateCardConfig;
+  @state() private _config?: DiyTemplateCardConfig;
 
   @state() private _templateResults?: TemplateResults;
 
@@ -101,6 +107,85 @@ export class MushroomDiyTemplateCard
     TemplateKey,
     Promise<UnsubscribeFunc>
   > = new Map();
+
+  @property({ reflect: true, type: String })
+  public layout: string | undefined;
+
+  public getCardSize(): number | Promise<number> {
+    let height = 1;
+    if (!this._config) return height;
+    const appearance = computeAppearance(this._config);
+    if (appearance.layout === "vertical") {
+      height += 1;
+    }
+    return height;
+  }
+
+  public getLayoutOptions(): LovelaceLayoutOptions {
+    const options: LovelaceLayoutOptions = {
+      grid_columns: 2,
+      grid_rows: 1,
+    };
+    if (!this._config) return options;
+    const appearance = computeAppearance(this._config);
+    if (appearance.layout === "vertical") {
+      options.grid_rows! += 1;
+    }
+    if (appearance.layout === "horizontal") {
+      options.grid_columns = 4;
+    }
+    if (this._config?.multiline_secondary) {
+      options.grid_rows = undefined;
+    }
+    return options;
+  }
+
+  // For HA < 2024.11
+  public getGridOptions(): LovelaceGridOptions {
+    // No min and max because the content can be dynamic
+    const options: LovelaceGridOptions = {
+      columns: 6,
+      rows: 1,
+    };
+    if (!this._config) return options;
+    const appearance = computeAppearance(this._config);
+    if (appearance.layout === "vertical") {
+      options.rows! += 1;
+    }
+    if (appearance.layout === "horizontal") {
+      options.columns = 12;
+    }
+    if (this._config?.multiline_secondary) {
+      options.rows = undefined;
+    }
+    return options;
+  }
+
+  setConfig(config: DiyTemplateCardConfig): void {
+    TEMPLATE_KEYS.forEach((key) => {
+      if (
+        this._config?.[key] !== config[key] ||
+        this._config?.entity != config.entity
+      ) {
+        this._tryDisconnectKey(key);
+      }
+    });
+    this._config = {
+      tap_action: {
+        action: "toggle",
+      },
+      hold_action: {
+        action: "more-info",
+      },
+      ...config,
+    };
+
+    if (this._config.entity && !this._config.icon_tap_action) {
+      this._config.icon_tap_action = {
+        action: getEntityDefaultTileIconAction(this._config.entity),
+      };
+    }
+  }
 
   public connectedCallback() {
     super.connectedCallback();
@@ -137,6 +222,180 @@ export class MushroomDiyTemplateCard
     }
   }
 
+  private _handleAction(ev: ActionHandlerEvent) {
+    handleAction(this, this.hass!, this._config!, ev.detail.action!);
+  }
+
+  private _handleIconAction(ev: ActionHandlerEvent) {
+    ev.stopPropagation();
+    const config = {
+      entity: this._config!.entity,
+      tap_action: this._config!.icon_tap_action,
+      hold_action: this._config!.icon_hold_action,
+      double_tap_action: this._config!.icon_double_tap_action,
+    };
+    handleAction(this, this.hass!, config, ev.detail.action!);
+  }
+
+  public isTemplate(key: TemplateKey) {
+    const value = this._config?.[key];
+    return value?.includes("{");
+  }
+
+  private getValue(key: TemplateKey) {
+    return this.isTemplate(key)
+      ? this._templateResults?.[key]?.result?.toString()
+      : this._config?.[key];
+  }
+
+  private get _hasIconAction() {
+    return (
+      hasAction(this._config?.icon_tap_action) ||
+      hasAction(this._config?.icon_hold_action) ||
+      hasAction(this._config?.icon_double_tap_action)
+    );
+  }
+
+  protected render() {
+    if (!this._config || !this.hass) {
+      return nothing;
+    }
+
+    const icon = this.getValue("icon");
+    const iconColor = this.getValue("icon_color");
+    const badgeIcon = this.getValue("badge_icon");
+    const badgeColor = this.getValue("badge_color");
+    const primary = this.getValue("primary");
+    const secondary = this.getValue("secondary");
+    const picture = this.getValue("picture");
+
+    const multiline_secondary = this._config.multiline_secondary;
+
+    const rtl = computeRTL(this.hass);
+
+    const appearance = computeAppearance({
+      fill_container: this._config.fill_container,
+      layout: this._config.layout,
+      icon_type: Boolean(picture)
+        ? "entity-picture"
+        : Boolean(icon)
+          ? "icon"
+          : "none",
+      primary_info: Boolean(primary) ? "name" : "none",
+      secondary_info: Boolean(secondary) ? "state" : "none",
+    });
+
+    const weatherSvg = getWeatherSvgIcon(icon);
+
+    return html`
+      <ha-card
+        class=${classMap({ "fill-container": appearance.fill_container })}
+      >
+        <mushroom-card .appearance=${appearance} ?rtl=${rtl}>
+          <mushroom-state-item
+            ?rtl=${rtl}
+            .appearance=${appearance}
+            @action=${this._handleAction}
+            .actionHandler=${actionHandler({
+              hasHold: hasAction(this._config.hold_action),
+              hasDoubleClick: hasAction(this._config.double_tap_action),
+            })}
+          >
+            ${picture
+              ? this.renderPicture(picture)
+              : weatherSvg
+                ? html`
+                    <div
+                      slot="icon"
+                      role=${ifDefined(this._hasIconAction ? "button" : undefined)}
+                      tabindex=${ifDefined(this._hasIconAction ? "0" : undefined)}
+                      @action=${this._handleIconAction}
+                      .actionHandler=${actionHandler({
+                        disabled: !this._hasIconAction,
+                        hasHold: hasAction(this._config?.icon_hold_action),
+                        hasDoubleClick: hasAction(
+                          this._config?.icon_double_tap_action
+                        ),
+                      })}
+                    >
+                      ${weatherSvg}
+                    </div>
+                  `
+                : icon
+                  ? this.renderIcon(icon, iconColor)
+                  : nothing}
+            ${(icon || picture) && badgeIcon
+              ? this.renderBadgeIcon(badgeIcon, badgeColor)
+              : undefined}
+            <mushroom-state-info
+              slot="info"
+              .primary=${primary}
+              .secondary=${secondary}
+              .multiline_secondary=${multiline_secondary}
+            ></mushroom-state-info>
+          </mushroom-state-item>
+        </mushroom-card>
+      </ha-card>
+    `;
+  }
+
+  renderPicture(picture: string): TemplateResult {
+    return html`
+      <mushroom-shape-avatar
+        slot="icon"
+        .picture_url=${(this.hass as any).hassUrl(picture)}
+        role=${ifDefined(this._hasIconAction ? "button" : undefined)}
+        tabindex=${ifDefined(this._hasIconAction ? "0" : undefined)}
+        @action=${this._handleIconAction}
+        .actionHandler=${actionHandler({
+          disabled: !this._hasIconAction,
+          hasHold: hasAction(this._config?.icon_hold_action),
+          hasDoubleClick: hasAction(this._config?.icon_double_tap_action),
+        })}
+      ></mushroom-shape-avatar>
+    `;
+  }
+
+  renderIcon(icon: string, iconColor?: string) {
+    const iconStyle = {};
+    if (iconColor) {
+      const iconRgbColor = computeRgbColor(iconColor);
+      iconStyle["--icon-color"] = `rgb(${iconRgbColor})`;
+      iconStyle["--shape-color"] = `rgba(${iconRgbColor}, 0.2)`;
+    }
+    return html`
+      <mushroom-shape-icon
+        style=${styleMap(iconStyle)}
+        slot="icon"
+        role=${ifDefined(this._hasIconAction ? "button" : undefined)}
+        tabindex=${ifDefined(this._hasIconAction ? "0" : undefined)}
+        @action=${this._handleIconAction}
+        .actionHandler=${actionHandler({
+          disabled: !this._hasIconAction,
+          hasHold: hasAction(this._config?.icon_hold_action),
+          hasDoubleClick: hasAction(this._config?.icon_double_tap_action),
+        })}
+      >
+        <ha-state-icon .hass=${this.hass} .icon=${icon}></ha-state-icon>
+      </mushroom-shape-icon>
+    `;
+  }
+
+  renderBadgeIcon(badge: string, badgeColor?: string) {
+    const badgeStyle = {};
+    if (badgeColor) {
+      const iconRgbColor = computeRgbColor(badgeColor);
+      badgeStyle["--main-color"] = `rgba(${iconRgbColor})`;
+    }
+    return html`
+      <mushroom-badge-icon
+        slot="badge"
+        .icon=${badge}
+        style=${styleMap(badgeStyle)}
+      ></mushroom-badge-icon>
+    `;
+  }
+
   protected updated(changedProps: PropertyValues): void {
     super.updated(changedProps);
     if (!this._config || !this.hass) {
@@ -144,13 +403,6 @@ export class MushroomDiyTemplateCard
     }
 
     this._tryConnect();
-  }
-
-  private _getTemplateKeyValue(key: TemplateKey): string {
-    if (!this._config) {
-      return "";
-    }
-    return this._config[key] ?? "";
   }
 
   private async _tryConnect(): Promise<void> {
@@ -163,15 +415,12 @@ export class MushroomDiyTemplateCard
     if (
       this._unsubRenderTemplates.get(key) !== undefined ||
       !this.hass ||
-      !this._config
+      !this._config ||
+      !this.isTemplate(key)
     ) {
       return;
     }
 
-    const value = this._getTemplateKeyValue(key);
-    if (!isTemplate(value)) {
-      return;
-    }
     try {
       const sub = subscribeRenderTemplate(
         this.hass.connection,
@@ -182,13 +431,12 @@ export class MushroomDiyTemplateCard
           };
         },
         {
-          template: value,
+          template: this._config[key] ?? "",
           entity_ids: this._config.entity_id,
           variables: {
             config: this._config,
             user: this.hass.user!.name,
             entity: this._config.entity,
-            area: this._config.area,
           },
           strict: true,
         }
@@ -237,504 +485,25 @@ export class MushroomDiyTemplateCard
     }
   }
 
-  public setConfig(config: TemplateCardConfig): void {
-    this._config = migrateTemplateCardConfig(config);
-
-    if (this._config.entity) {
-      if (!this._config.tap_action) {
-        this._config.tap_action = { action: "more-info" };
-      }
-      if (!this._config.icon_tap_action) {
-        this._config.icon_tap_action = {
-          action: getEntityDefaultTileIconAction(this._config.entity),
-        };
-      }
-    }
-  }
-
-  private _featureContext = memoizeOne(
-    (config: TemplateCardConfig): LovelaceCardFeatureContext => {
-      return {
-        entity_id: config.entity,
-        area_id: config.area,
-      };
-    }
-  );
-
-  private getValue(key: TemplateKey) {
-    const value = this._getTemplateKeyValue(key);
-    return isTemplate(value)
-      ? this._templateResults?.[key]?.result?.toString()
-      : value;
-  }
-
-  public getCardSize(): number {
-    const featuresPosition =
-      this._config && this._featurePosition(this._config);
-    const featuresCount = this._config?.features?.length || 0;
-
-    const hasContent = Boolean(
-      this._config?.icon ||
-        this._config?.picture ||
-        this._config?.primary ||
-        this._config?.secondary
-    );
-
-    return (
-      (hasContent || featuresPosition === "inline" ? 1 : 0) +
-      (this._config?.vertical ? 1 : 0) +
-      (featuresPosition === "inline" ? 0 : featuresCount)
-    );
-  }
-
-  public getGridOptions(): LovelaceGridOptions {
-    let columns: number | undefined = 6;
-    let rows: number | undefined = 0;
-
-    const hasContent = Boolean(
-      this._config?.icon ||
-        this._config?.picture ||
-        this._config?.primary ||
-        this._config?.secondary
-    );
-
-    rows = hasContent ? 1 : 0;
-
-    const featurePosition = this._config && this._featurePosition(this._config);
-    const featuresCount = this._config?.features?.length || 0;
-    if (featuresCount) {
-      if (featurePosition === "inline") {
-        columns = 12;
-        rows = 1;
-      } else {
-        rows += featuresCount;
-      }
-    }
-
-    if (this._config?.vertical) {
-      if (
-        this._config.primary ||
-        (this._config.secondary && !this._config.icon)
-      ) {
-        rows++;
-      }
-    }
-    if (this._config?.multiline_secondary) {
-      rows = undefined;
-    }
-    return {
-      columns,
-      rows,
-    };
-  }
-
-  private _handleAction(ev: ActionHandlerEvent) {
-    handleAction(this, this.hass!, this._config!, ev.detail.action!);
-  }
-
-  private _handleIconAction(ev: CustomEvent) {
-    ev.stopPropagation();
-    const config = {
-      entity: this._config!.entity,
-      tap_action: this._config!.icon_tap_action,
-      hold_action: this._config!.icon_hold_action,
-      double_tap_action: this._config!.icon_double_tap_action,
-    };
-    handleAction(this, this.hass!, config, ev.detail.action!);
-  }
-
-  private get _hasCardAction() {
-    return (
-      hasAction(this._config?.tap_action) ||
-      hasAction(this._config?.hold_action) ||
-      hasAction(this._config?.double_tap_action)
-    );
-  }
-
-  private get _hasIconAction() {
-    return (
-      hasAction(this._config?.icon_tap_action) ||
-      hasAction(this._config?.icon_hold_action) ||
-      hasAction(this._config?.icon_double_tap_action)
-    );
-  }
-
-  private _featurePosition = memoizeOne((config: TemplateCardConfig) => {
-    if (config.vertical) {
-      return "bottom";
-    }
-    return config.features_position || "bottom";
-  });
-
-  private _displayedFeatures = memoizeOne((config: TemplateCardConfig) => {
-    const features = config.features || [];
-    const featurePosition = this._featurePosition(config);
-
-    if (featurePosition === "inline") {
-      return features.slice(0, 1);
-    }
-    return features;
-  });
-
-  protected render() {
-    if (!this._config || !this.hass) {
-      return nothing;
-    }
-
-    const icon = this.getValue("icon");
-    const color = this.getValue("color");
-    const cssColor = color ? computeCssColor(color) : undefined;
-    const primary = this.getValue("primary");
-    const secondary = this.getValue("secondary");
-    const picture = this.getValue("picture");
-    const badgeIcon = this.getValue("badge_icon");
-    const badgeColor = this.getValue("badge_color");
-    const badgeText = this.getValue("badge_text");
-    const badgeCssColor = badgeColor ? computeCssColor(badgeColor) : undefined;
-
-    const weatherSvg = getWeatherSvgIcon(icon);
-
-    const style: Record<string, string> = {};
-    if (cssColor) {
-      style["--tile-color"] = cssColor;
-    }
-
-    const featurePosition = this._featurePosition(this._config);
-    const features = this._displayedFeatures(this._config);
-
-    const multilineSecondary = this._config.multiline_secondary;
-    const hasInfo = Boolean(primary || secondary);
-    const secondaryText = multilineSecondary
-      ? secondary ?? ""
-      : secondary?.trim() ?? "";
-
-    const featureContext = this._featureContext(this._config);
-
-    const featureOnly =
-      features.length > 0 && !icon && !picture && !hasInfo;
-
-    const containerClasses = classMap({
-      horizontal: featurePosition === "inline",
-      "feature-only": featureOnly,
-    });
-
-    const contentClasses = classMap({
-      vertical: Boolean(this._config.vertical),
-    });
-
-    const { haVersion } = this.hass.connection;
-    const supportTileInfoSlot = atLeastHaVersion(haVersion, 2025, 10, 0);
-
-    return html`
-      <ha-card style=${styleMap(style)}>
-        <div
-          class="background"
-          @action=${this._handleAction}
-          .actionHandler=${actionHandler({
-            disabled: !this._hasCardAction,
-            hasHold: hasAction(this._config!.hold_action),
-            hasDoubleClick: hasAction(this._config!.double_tap_action),
-          })}
-          role=${ifDefined(this._hasCardAction ? "button" : undefined)}
-          tabindex=${ifDefined(this._hasCardAction ? "0" : undefined)}
-          aria-labelledby=${ifDefined(hasInfo ? "info" : undefined)}
-        >
-          <ha-ripple .disabled=${!this._hasCardAction}></ha-ripple>
-        </div>
-        <div class="container ${containerClasses}">
-          ${icon || picture || hasInfo
-            ? html`<div class="content ${contentClasses}">
-                ${icon || picture
-                  ? html`
-                      <ha-tile-icon
-                        role=${ifDefined(
-                          this._hasIconAction ? "button" : undefined
-                        )}
-                        tabindex=${ifDefined(
-                          this._hasIconAction ? "0" : undefined
-                        )}
-                        @action=${this._handleIconAction}
-                        .actionHandler=${actionHandler({
-                          disabled: !this._hasIconAction,
-                          hasHold: hasAction(this._config!.icon_hold_action),
-                          hasDoubleClick: hasAction(
-                            this._config!.icon_double_tap_action
-                          ),
-                        })}
-                        .interactive=${this._hasIconAction}
-                        .imageUrl=${picture}
-                        class=${weatherSvg ? "weather" : ""}
-                      >
-                        ${weatherSvg
-                          ? html`<div slot="icon">${weatherSvg}</div>`
-                          : html`<ha-state-icon
-                              slot="icon"
-                              .icon=${icon}
-                              .hass=${this.hass}
-                            ></ha-state-icon>`}
-                        ${badgeIcon || badgeText
-                          ? html`
-                              <ha-tile-badge
-                                style=${styleMap({
-                                  "--badge-color": badgeCssColor,
-                                })}
-                              >
-                                ${badgeText
-                                  ? html`<span>${badgeText}</span>`
-                                  : html`<ha-icon .icon=${badgeIcon}>
-                                    </ha-icon>`}
-                              </ha-tile-badge>
-                            `
-                          : nothing}
-                      </ha-tile-icon>
-                    `
-                  : nothing}
-                ${hasInfo
-                  ? html`
-                      <ha-tile-info
-                        id="info"
-                        .primary=${supportTileInfoSlot
-                          ? undefined
-                          : html`
-                              <span class="primary-text"
-                                >${primary ?? ""}</span
-                              >
-                            `}
-                        .secondary=${supportTileInfoSlot
-                          ? undefined
-                          : html`
-                              <span
-                                class=${classMap({
-                                  "secondary-text": true,
-                                  multiline: Boolean(multilineSecondary),
-                                })}
-                                >${secondaryText}</span
-                              >
-                            `}
-                      >
-                        ${supportTileInfoSlot
-                          ? html`
-                              <span slot="primary" class="primary-text"
-                                >${primary ?? ""}</span
-                              >
-                              <span
-                                slot="secondary"
-                                class=${classMap({
-                                  "secondary-text": true,
-                                  multiline: Boolean(multilineSecondary),
-                                })}
-                                >${secondaryText}</span
-                              >
-                            `
-                          : nothing}
-                      </ha-tile-info>
-                    `
-                  : nothing}
-              </div> `
-            : nothing}
-          ${features.length > 0
-            ? html`
-                <hui-card-features
-                  .hass=${this.hass}
-                  .context=${featureContext}
-                  .color=${cssColor}
-                  .features=${features}
-                  .position=${featurePosition}
-                ></hui-card-features>
-              `
-            : nothing}
-        </div>
-      </ha-card>
-    `;
-  }
-
-  static override get styles() {
+  static get styles(): CSSResultGroup {
     return [
       super.styles,
-      weatherSVGStyles,
+      cardStyle,
       css`
-      :host {
-        --tile-color: var(
-          --icon-color,
-          var(--state-inactive-color, rgb(var(--rgb-disabled)))
-        );
-        -webkit-tap-highlight-color: transparent;
-      }
-      ha-card:has(.background:focus-visible) {
-        --shadow-default: var(--ha-card-box-shadow, 0 0 0 0 transparent);
-        --shadow-focus: 0 0 0 1px var(--tile-color);
-        border-color: var(--tile-color);
-        box-shadow: var(--shadow-default), var(--shadow-focus);
-      }
-      ha-card {
-        --ha-ripple-color: var(--tile-color);
-        --ha-ripple-hover-opacity: 0.04;
-        --ha-ripple-pressed-opacity: 0.12;
-        height: 100%;
-        transition:
-          box-shadow 180ms ease-in-out,
-          border-color 180ms ease-in-out;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-      }
-      [role="button"] {
-        cursor: pointer;
-        pointer-events: auto;
-      }
-      [role="button"]:focus {
-        outline: none;
-      }
-      .background {
-        position: absolute;
-        top: 0;
-        left: 0;
-        bottom: 0;
-        right: 0;
-        border-radius: var(--ha-card-border-radius, 12px);
-        margin: calc(-1 * var(--ha-card-border-width, 1px));
-        overflow: hidden;
-      }
-      .container {
-        margin: calc(-1 * var(--ha-card-border-width, 1px));
-        display: flex;
-        flex-direction: column;
-        flex: 1;
-      }
-      .container.horizontal {
-        flex-direction: row;
-      }
-
-      .content {
-        position: relative;
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        padding: var(--spacing);
-        flex: 1;
-        min-width: 0;
-        box-sizing: border-box;
-        pointer-events: none;
-        gap: var(--spacing);
-      }
-
-      .vertical {
-        flex-direction: column;
-        text-align: center;
-        justify-content: center;
-      }
-      .vertical ha-tile-info {
-        width: 100%;
-        flex: none;
-      }
-
-      .primary-text {
-        font-weight: var(--card-primary-font-weight);
-        font-size: var(--card-primary-font-size);
-        line-height: var(--card-primary-line-height);
-        color: var(--card-primary-color);
-        letter-spacing: var(--card-primary-letter-spacing);
-        text-overflow: ellipsis;
-        overflow: hidden;
-        white-space: nowrap;
-        display: block;
-      }
-      .secondary-text {
-        font-weight: var(--card-secondary-font-weight);
-        font-size: var(--card-secondary-font-size);
-        line-height: var(--card-secondary-line-height);
-        color: var(--card-secondary-color);
-        letter-spacing: var(--card-secondary-letter-spacing);
-        text-overflow: ellipsis;
-        overflow: hidden;
-        white-space: nowrap;
-        display: block;
-      }
-      .secondary-text.multiline {
-        white-space: pre-wrap;
-      }
-
-      ha-tile-icon {
-        --tile-icon-border-radius: var(--icon-border-radius);
-        --tile-icon-color: var(--tile-color);
-        --tile-icon-size: var(--icon-size);
-        --tile-icon-symbol-size: var(--icon-symbol-size);
-        position: relative;
-        padding: calc(var(--spacing) * 0.6);
-        margin: calc(var(--spacing) * -0.6);
-      }
-      ha-tile-icon.weather svg {
-        width: var(--icon-size);
-        height: var(--icon-size);
-        display: flex;
-      }
-      ha-tile-icon.weather {
-        --tile-icon-opacity: 0;
-        --tile-icon-hover-opacity: 0;
-        --tile-icon-border-radius: 0;
-      }
-      ha-tile-badge {
-        position: absolute;
-        top: calc(var(--spacing) * 0.3);
-        right: calc(var(--spacing) * 0.3);
-        inset-inline-end: calc(var(--spacing) * 0.3);
-        inset-inline-start: initial;
-        --tile-badge-background-color: var(
-          --badge-color,
-          var(--secondary-text-color)
-        );
-      }
-      ha-tile-badge span {
-        font-size: 0.8rem;
-        font-weight: bold;
-        height: 16px;
-        line-height: 16px;
-      }
-      ha-tile-info {
-        position: relative;
-        min-width: 0;
-        transition: background-color 180ms ease-in-out;
-        box-sizing: border-box;
-      }
-      hui-card-features {
-        --feature-color: var(--tile-color);
-        padding: 0 var(--spacing) var(--spacing) var(--spacing);
-      }
-      .container.horizontal hui-card-features {
-        width: calc(50% - var(--column-gap, 0px) / 2 - var(--spacing));
-        flex: none;
-        --feature-height: 36px;
-        padding: 0 var(--spacing);
-        padding-inline-start: 0;
-      }
-      .container.feature-only {
-        justify-content: flex-end;
-      }
-      .container.feature-only hui-card-features {
-        flex: 1;
-        width: 100%;
-        padding: var(--spacing);
-      }
-      .container.feature-only.horizontal hui-card-features {
-        padding: 0 var(--spacing);
-      }
-      .container.horizontal .content:not(:has(ha-tile-info)) {
-        flex: none;
-      }
-      .container.horizontal:not(:has(ha-tile-info)) hui-card-features {
-        width: auto;
-        flex: 1;
-      }
-      .container.horizontal:not(:has(ha-tile-info)) .content {
-        flex: none;
-      }
+        mushroom-state-item {
+          cursor: pointer;
+        }
+        mushroom-shape-icon {
+          --icon-color: rgb(var(--rgb-disabled));
+          --shape-color: rgba(var(--rgb-disabled), 0.2);
+        }
+        svg {
+          width: var(--icon-size);
+          height: var(--icon-size);
+          display: flex;
+        }
+        ${weatherSVGStyles}
       `,
     ];
-  }
-}
-
-declare global {
-  interface HTMLElementTagNameMap {
-    "mushroom-diy-template-card": MushroomDiyTemplateCard;
   }
 }
