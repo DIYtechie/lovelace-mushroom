@@ -8,13 +8,13 @@ import {
   DOMAINS_TOGGLE,
   handleAction,
   hasAction,
-  HomeAssistant,
   LovelaceCard,
   LovelaceCardEditor,
   LovelaceGridOptions,
   LovelaceLayoutOptions,
   RenderTemplateResult,
   subscribeRenderTemplate,
+  HomeAssistant,
 } from "../../ha";
 import {
   css,
@@ -34,8 +34,8 @@ import "../../shared/state-info";
 import "../../shared/state-item";
 import { computeAppearance } from "../../utils/appearance";
 import { MushroomBaseElement } from "../../utils/base-element";
-import { CacheManager } from "../../utils/cache-manager";
 import { cardStyle } from "../../utils/card-styles";
+import { CacheManager } from "../../utils/cache-manager";
 import { computeRgbColor } from "../../utils/colors";
 import { getWeatherSvgIcon } from "../../utils/icons/weather-icon";
 import { weatherSVGStyles } from "../../utils/weather";
@@ -202,10 +202,6 @@ export class MushroomDiyTemplateCard
     }
   }
 
-  private _computeCacheKey() {
-    return hash(this._config);
-  }
-
   protected willUpdate(_changedProperties: PropertyValues): void {
     super.willUpdate(_changedProperties);
     if (!this._config) {
@@ -279,8 +275,8 @@ export class MushroomDiyTemplateCard
       icon_type: Boolean(picture)
         ? "entity-picture"
         : Boolean(icon)
-          ? "icon"
-          : "none",
+        ? "icon"
+        : "none",
       primary_info: Boolean(primary) ? "name" : "none",
       secondary_info: Boolean(secondary) ? "state" : "none",
     });
@@ -304,26 +300,26 @@ export class MushroomDiyTemplateCard
             ${picture
               ? this.renderPicture(picture)
               : weatherSvg
-                ? html`
-                    <div
-                      slot="icon"
-                      role=${ifDefined(this._hasIconAction ? "button" : undefined)}
-                      tabindex=${ifDefined(this._hasIconAction ? "0" : undefined)}
-                      @action=${this._handleIconAction}
-                      .actionHandler=${actionHandler({
-                        disabled: !this._hasIconAction,
-                        hasHold: hasAction(this._config?.icon_hold_action),
-                        hasDoubleClick: hasAction(
-                          this._config?.icon_double_tap_action
-                        ),
-                      })}
-                    >
-                      ${weatherSvg}
-                    </div>
-                  `
-                : icon
-                  ? this.renderIcon(icon, iconColor)
-                  : nothing}
+              ? html`
+                  <div
+                    slot="icon"
+                    role=${ifDefined(this._hasIconAction ? "button" : undefined)}
+                    tabindex=${ifDefined(this._hasIconAction ? "0" : undefined)}
+                    @action=${this._handleIconAction}
+                    .actionHandler=${actionHandler({
+                      disabled: !this._hasIconAction,
+                      hasHold: hasAction(this._config?.icon_hold_action),
+                      hasDoubleClick: hasAction(
+                        this._config?.icon_double_tap_action
+                      ),
+                    })}
+                  >
+                    ${weatherSvg}
+                  </div>
+                `
+              : icon
+              ? this.renderIcon(icon, iconColor)
+              : nothing}
             ${(icon || picture) && badgeIcon
               ? this.renderBadgeIcon(badgeIcon, badgeColor)
               : undefined}
@@ -357,7 +353,7 @@ export class MushroomDiyTemplateCard
   }
 
   renderIcon(icon: string, iconColor?: string) {
-    const iconStyle = {};
+    const iconStyle: Record<string, string> = {};
     if (iconColor) {
       const iconRgbColor = computeRgbColor(iconColor);
       iconStyle["--icon-color"] = `rgb(${iconRgbColor})`;
@@ -382,7 +378,7 @@ export class MushroomDiyTemplateCard
   }
 
   renderBadgeIcon(badge: string, badgeColor?: string) {
-    const badgeStyle = {};
+    const badgeStyle: Record<string, string> = {};
     if (badgeColor) {
       const iconRgbColor = computeRgbColor(badgeColor);
       badgeStyle["--main-color"] = `rgba(${iconRgbColor})`;
@@ -401,7 +397,6 @@ export class MushroomDiyTemplateCard
     if (!this._config || !this.hass) {
       return;
     }
-
     this._tryConnect();
   }
 
@@ -444,8 +439,8 @@ export class MushroomDiyTemplateCard
       this._unsubRenderTemplates.set(key, sub);
       await sub;
     } catch (_err) {
-      const result = {
-        result: this._config[key] ?? "",
+      const result: RenderTemplateResult = {
+        result: (this._config?.[key] as string) ?? "",
         listeners: {
           all: false,
           domains: [],
@@ -460,6 +455,7 @@ export class MushroomDiyTemplateCard
       this._unsubRenderTemplates.delete(key);
     }
   }
+
   private async _tryDisconnect(): Promise<void> {
     TEMPLATE_KEYS.forEach((key) => {
       this._tryDisconnectKey(key);
@@ -478,7 +474,7 @@ export class MushroomDiyTemplateCard
       this._unsubRenderTemplates.delete(key);
     } catch (err: any) {
       if (err.code === "not_found" || err.code === "template_error") {
-        // If we get here, the connection was probably already closed. Ignore.
+        // Connection probably already closed
       } else {
         throw err;
       }
@@ -505,5 +501,17 @@ export class MushroomDiyTemplateCard
         ${weatherSVGStyles}
       `,
     ];
+  }
+
+  private _computeCacheKey(): string {
+    // Bevar eksisterende cache-nøglelogik, hvis du allerede havde den.
+    // Hvis ikke, giver denne en stabil nøgle pr. config + entity.
+    return hash({
+      entity: this._config?.entity,
+      config: TEMPLATE_KEYS.reduce((acc, key) => {
+        acc[key] = this._config?.[key];
+        return acc;
+      }, {} as Record<string, unknown>),
+    });
   }
 }
