@@ -64,6 +64,7 @@ const SCHEMA: HaFormSchema[] = [
     ],
   },
   ...computeActionsFormSchema(),
+  { name: "icon_tap_action", selector: { ui_action: {} } },
 ];
 
 @customElement(LEGACY_TEMPLATE_CARD_EDITOR_NAME)

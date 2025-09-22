@@ -9,6 +9,7 @@ import {
 } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { classMap } from "lit/directives/class-map.js";
+import { ifDefined } from "lit/directives/if-defined.js";
 import { styleMap } from "lit/directives/style-map.js";
 import hash from "object-hash/dist/object_hash";
 import {
@@ -153,7 +154,7 @@ export class LegacyTemplateCard
         this._tryDisconnectKey(key);
       }
     });
-    this._config = {
+    const mergedConfig: LegacyTemplateCardConfig = {
       tap_action: {
         action: "toggle",
       },
@@ -162,6 +163,12 @@ export class LegacyTemplateCard
       },
       ...config,
     };
+    if (!mergedConfig.icon_tap_action && mergedConfig.entity) {
+      mergedConfig.icon_tap_action = {
+        action: "toggle",
+      };
+    }
+    this._config = mergedConfig;
   }
 
   public connectedCallback() {
@@ -203,6 +210,22 @@ export class LegacyTemplateCard
     handleAction(this, this.hass!, this._config!, ev.detail.action!);
   }
 
+  private _handleIconAction(ev: ActionHandlerEvent) {
+    ev.stopPropagation();
+    if (!this._config?.icon_tap_action) {
+      return;
+    }
+    handleAction(
+      this,
+      this.hass!,
+      {
+        entity: this._config.entity,
+        tap_action: this._config.icon_tap_action,
+      },
+      ev.detail.action!
+    );
+  }
+
   public isTemplate(key: TemplateKey) {
     const value = this._config?.[key];
     return value?.includes("{");
@@ -212,6 +235,10 @@ export class LegacyTemplateCard
     return this.isTemplate(key)
       ? this._templateResults?.[key]?.result?.toString()
       : this._config?.[key];
+  }
+
+  private get _hasIconAction() {
+    return hasAction(this._config?.icon_tap_action);
   }
 
   protected render() {
@@ -262,7 +289,19 @@ export class LegacyTemplateCard
             ${picture
               ? this.renderPicture(picture)
               : weatherSvg
-                ? html`<div slot="icon">${weatherSvg}</div>`
+                ? html`
+                    <div
+                      slot="icon"
+                      role=${ifDefined(this._hasIconAction ? "button" : undefined)}
+                      tabindex=${ifDefined(this._hasIconAction ? "0" : undefined)}
+                      @action=${this._handleIconAction}
+                      .actionHandler=${actionHandler({
+                        disabled: !this._hasIconAction,
+                      })}
+                    >
+                      ${weatherSvg}
+                    </div>
+                  `
                 : icon
                   ? this.renderIcon(icon, iconColor)
                   : nothing}
@@ -286,6 +325,12 @@ export class LegacyTemplateCard
       <mushroom-shape-avatar
         slot="icon"
         .picture_url=${(this.hass as any).hassUrl(picture)}
+        role=${ifDefined(this._hasIconAction ? "button" : undefined)}
+        tabindex=${ifDefined(this._hasIconAction ? "0" : undefined)}
+        @action=${this._handleIconAction}
+        .actionHandler=${actionHandler({
+          disabled: !this._hasIconAction,
+        })}
       ></mushroom-shape-avatar>
     `;
   }
@@ -298,7 +343,16 @@ export class LegacyTemplateCard
       iconStyle["--shape-color"] = `rgba(${iconRgbColor}, 0.2)`;
     }
     return html`
-      <mushroom-shape-icon style=${styleMap(iconStyle)} slot="icon">
+      <mushroom-shape-icon
+        style=${styleMap(iconStyle)}
+        slot="icon"
+        role=${ifDefined(this._hasIconAction ? "button" : undefined)}
+        tabindex=${ifDefined(this._hasIconAction ? "0" : undefined)}
+        @action=${this._handleIconAction}
+        .actionHandler=${actionHandler({
+          disabled: !this._hasIconAction,
+        })}
+      >
         <ha-state-icon .hass=${this.hass} .icon=${icon}></ha-state-icon>
       </mushroom-shape-icon>
     `;
