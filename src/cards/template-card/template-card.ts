@@ -1,6 +1,6 @@
 import { UnsubscribeFunc } from "home-assistant-js-websocket";
-import { css, html, nothing, PropertyValues } from "lit";
-import { customElement, state } from "lit/decorators.js";
+import { css, html, LitElement, nothing, PropertyValues } from "lit";
+import { customElement, property, state } from "lit/decorators.js";
 import { classMap } from "lit/directives/class-map.js";
 import { ifDefined } from "lit/directives/if-defined.js";
 import { styleMap } from "lit/directives/style-map.js";
@@ -23,7 +23,6 @@ import {
 } from "../../ha";
 import { computeCssColor } from "../../ha/common/color/compute-color";
 import { isTemplate } from "../../ha/common/string/has-template";
-import { MushroomBaseElement } from "../../utils/base-element";
 import { CacheManager } from "../../utils/cache-manager";
 import { registerCustomCard } from "../../utils/custom-cards";
 import {
@@ -73,7 +72,7 @@ export interface LovelaceCardFeatureContext {
 }
 
 @customElement("mushroom-template-card")
-export class MushroomTemplateCard extends MushroomBaseElement implements LovelaceCard {
+export class MushroomTemplateCard extends LitElement implements LovelaceCard {
   public static async getConfigElement(): Promise<LovelaceCardEditor> {
     await import("./template-card-editor");
     return document.createElement(
@@ -89,6 +88,8 @@ export class MushroomTemplateCard extends MushroomBaseElement implements Lovelac
       icon: "mdi:mushroom",
     };
   }
+
+  @property({ attribute: false }) public hass?: HomeAssistant;
 
   @state() private _config?: TemplateCardConfig;
 
@@ -391,24 +392,19 @@ export class MushroomTemplateCard extends MushroomBaseElement implements Lovelac
 
     const weatherSvg = getWeatherSvgIcon(icon);
 
-    const style: Record<string, string> = {};
-    if (cssColor) {
-      style["--tile-color"] = cssColor;
-    }
+    const style = {
+      "--tile-color": cssColor,
+    };
 
     const featurePosition = this._featurePosition(this._config);
     const features = this._displayedFeatures(this._config);
 
     const multilineSecondary = this._config.multiline_secondary;
-    const hasInfo = Boolean(primary || secondary);
-    const secondaryText = multilineSecondary
-      ? secondary ?? ""
-      : secondary?.trim() ?? "";
 
     const featureContext = this._featureContext(this._config);
 
     const featureOnly =
-      features.length > 0 && !icon && !picture && !hasInfo;
+      features.length > 0 && !icon && !picture && !primary && !secondary;
 
     const containerClasses = classMap({
       horizontal: featurePosition === "inline",
@@ -434,12 +430,12 @@ export class MushroomTemplateCard extends MushroomBaseElement implements Lovelac
           })}
           role=${ifDefined(this._hasCardAction ? "button" : undefined)}
           tabindex=${ifDefined(this._hasCardAction ? "0" : undefined)}
-          aria-labelledby=${ifDefined(hasInfo ? "info" : undefined)}
+          aria-labelledby="info"
         >
           <ha-ripple .disabled=${!this._hasCardAction}></ha-ripple>
         </div>
         <div class="container ${containerClasses}">
-          ${icon || picture || hasInfo
+          ${icon || picture || primary || secondary
             ? html`<div class="content ${contentClasses}">
                 ${icon || picture
                   ? html`
@@ -486,41 +482,33 @@ export class MushroomTemplateCard extends MushroomBaseElement implements Lovelac
                       </ha-tile-icon>
                     `
                   : nothing}
-                ${hasInfo
+                ${primary || secondary
                   ? html`
                       <ha-tile-info
                         id="info"
-                        .primary=${supportTileInfoSlot
-                          ? undefined
-                          : html`
-                              <span class="primary-text"
-                                >${primary ?? ""}</span
-                              >
-                            `}
+                        .primary=${supportTileInfoSlot ? undefined : primary}
                         .secondary=${supportTileInfoSlot
                           ? undefined
                           : html`
                               <span
-                                class=${classMap({
-                                  "secondary-text": true,
-                                  multiline: Boolean(multilineSecondary),
+                                style=${styleMap({
+                                  "white-space": multilineSecondary
+                                    ? "pre-wrap"
+                                    : "nowrap",
                                 })}
-                                >${secondaryText}</span
+                                >${secondary?.trim()}</span
                               >
                             `}
                       >
                         ${supportTileInfoSlot
                           ? html`
-                              <span slot="primary" class="primary-text"
-                                >${primary ?? ""}</span
-                              >
+                              <span slot="primary">${primary}</span>
                               <span
                                 slot="secondary"
                                 class=${classMap({
-                                  "secondary-text": true,
                                   multiline: Boolean(multilineSecondary),
                                 })}
-                                >${secondaryText}</span
+                                >${secondary}</span
                               >
                             `
                           : nothing}
@@ -545,190 +533,205 @@ export class MushroomTemplateCard extends MushroomBaseElement implements Lovelac
     `;
   }
 
-  static override get styles() {
-    return [
-      super.styles,
-      weatherSVGStyles,
-      css`
-      :host {
-        --tile-color: var(
-          --icon-color,
-          var(--state-inactive-color, rgb(var(--rgb-disabled)))
-        );
-        -webkit-tap-highlight-color: transparent;
-      }
-      ha-card:has(.background:focus-visible) {
-        --shadow-default: var(--ha-card-box-shadow, 0 0 0 0 transparent);
-        --shadow-focus: 0 0 0 1px var(--tile-color);
-        border-color: var(--tile-color);
-        box-shadow: var(--shadow-default), var(--shadow-focus);
-      }
-      ha-card {
-        --ha-ripple-color: var(--tile-color);
-        --ha-ripple-hover-opacity: 0.04;
-        --ha-ripple-pressed-opacity: 0.12;
-        height: 100%;
-        transition:
-          box-shadow 180ms ease-in-out,
-          border-color 180ms ease-in-out;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-      }
-      [role="button"] {
-        cursor: pointer;
-        pointer-events: auto;
-      }
-      [role="button"]:focus {
-        outline: none;
-      }
-      .background {
-        position: absolute;
-        top: 0;
-        left: 0;
-        bottom: 0;
-        right: 0;
-        border-radius: var(--ha-card-border-radius, 12px);
-        margin: calc(-1 * var(--ha-card-border-width, 1px));
-        overflow: hidden;
-      }
-      .container {
-        margin: calc(-1 * var(--ha-card-border-width, 1px));
-        display: flex;
-        flex-direction: column;
-        flex: 1;
-      }
-      .container.horizontal {
-        flex-direction: row;
-      }
+static styles = [
+  weatherSVGStyles,
+  css`
+    :host {
+      --tile-color: var(--state-inactive-color);
+      -webkit-tap-highlight-color: transparent;
+    }
+    ha-card:has(.background:focus-visible) {
+      --shadow-default: var(--ha-card-box-shadow, 0 0 0 0 transparent);
+      --shadow-focus: 0 0 0 1px var(--tile-color);
+      border-color: var(--tile-color);
+      box-shadow: var(--shadow-default), var(--shadow-focus);
+    }
+    ha-card {
+      --ha-ripple-color: var(--tile-color);
+      --ha-ripple-hover-opacity: 0.04;
+      --ha-ripple-pressed-opacity: 0.12;
+      height: 100%;
+      transition:
+        box-shadow 180ms ease-in-out,
+        border-color 180ms ease-in-out;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    [role="button"] {
+      cursor: pointer;
+      pointer-events: auto;
+    }
+    [role="button"]:focus {
+      outline: none;
+    }
+    .background {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      right: 0;
+      border-radius: var(--ha-card-border-radius, 12px);
+      margin: calc(-1 * var(--ha-card-border-width, 1px));
+      overflow: hidden;
+    }
+    .container {
+      margin: calc(-1 * var(--ha-card-border-width, 1px));
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+    .container.horizontal {
+      flex-direction: row;
+    }
 
-      .content {
-        position: relative;
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        padding: 10px;
-        flex: 1;
-        min-width: 0;
-        box-sizing: border-box;
-        pointer-events: none;
-        gap: 10px;
-      }
+    .content {
+      position: relative;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      padding: 10px;
+      flex: 1;
+      min-width: 0;
+      box-sizing: border-box;
+      pointer-events: none;
+      gap: 10px;
+    }
 
-      .vertical {
-        flex-direction: column;
-        text-align: center;
-        justify-content: center;
-      }
-      .vertical ha-tile-info {
-        width: 100%;
-        flex: none;
-      }
+    .vertical {
+      flex-direction: column;
+      text-align: center;
+      justify-content: center;
+    }
+    .vertical ha-tile-info {
+      width: 100%;
+      flex: none;
+    }
 
-      .primary-text {
-        font-weight: var(--card-primary-font-weight);
-        font-size: var(--card-primary-font-size);
-        line-height: var(--card-primary-line-height);
-        color: var(--card-primary-color);
-        letter-spacing: var(--card-primary-letter-spacing);
-        text-overflow: ellipsis;
-        overflow: hidden;
-        white-space: nowrap;
-        display: block;
-      }
-      .secondary-text {
-        font-weight: var(--card-secondary-font-weight);
-        font-size: var(--card-secondary-font-size);
-        line-height: var(--card-secondary-line-height);
-        color: var(--card-secondary-color);
-        letter-spacing: var(--card-secondary-letter-spacing);
-        text-overflow: ellipsis;
-        overflow: hidden;
-        white-space: nowrap;
-        display: block;
-      }
-      .secondary-text.multiline {
-        white-space: pre-wrap;
-      }
+    .multiline {
+      white-space: pre-wrap;
+    }
 
-      ha-tile-icon {
-        --tile-icon-border-radius: var(--icon-border-radius);
-        --tile-icon-color: var(--tile-color);
-        --tile-icon-size: var(--icon-size);
-        --tile-icon-symbol-size: var(--icon-symbol-size);
-        position: relative;
-        padding: 6px;
-        margin: -6px;
-      }
-      ha-tile-icon.weather svg {
-        width: var(--icon-size);
-        height: var(--icon-size);
-        display: flex;
-      }
-      ha-tile-icon.weather {
-        --tile-icon-opacity: 0;
-        --tile-icon-hover-opacity: 0;
-        --tile-icon-border-radius: 0;
-      }
-      ha-tile-badge {
-        position: absolute;
-        top: 3px;
-        right: 3px;
-        inset-inline-end: 3px;
-        inset-inline-start: initial;
-        --tile-badge-background-color: var(
-          --badge-color,
-          var(--secondary-text-color)
-        );
-      }
-      ha-tile-badge span {
-        font-size: 0.8rem;
-        font-weight: bold;
-        height: 16px;
-        line-height: 16px;
-      }
-      ha-tile-info {
-        position: relative;
-        min-width: 0;
-        transition: background-color 180ms ease-in-out;
-        box-sizing: border-box;
-      }
-      hui-card-features {
-        --feature-color: var(--tile-color);
-        padding: 0 12px 12px 12px;
-      }
-      .container.horizontal hui-card-features {
-        width: calc(50% - var(--column-gap, 0px) / 2 - 12px);
-        flex: none;
-        --feature-height: 36px;
-        padding: 0 12px;
-        padding-inline-start: 0;
-      }
-      .container.feature-only {
-        justify-content: flex-end;
-      }
-      .container.feature-only hui-card-features {
-        flex: 1;
-        width: 100%;
-        padding: 12px 12px 12px 12px;
-      }
-      .container.feature-only.horizontal hui-card-features {
-        padding: 0 12px;
-      }
-      .container.horizontal .content:not(:has(ha-tile-info)) {
-        flex: none;
-      }
-      .container.horizontal:not(:has(ha-tile-info)) hui-card-features {
-        width: auto;
-        flex: 1;
-      }
-      .container.horizontal:not(:has(ha-tile-info)) .content {
-        flex: none;
-      }
-      `,
-    ];
-  }
-}
+    ha-tile-icon {
+      --tile-icon-color: var(--tile-color);
+      position: relative;
+      padding: 6px;
+      margin: -6px;
+    }
+    ha-tile-icon.weather svg {
+      width: 36px;
+      height: 36px;
+      display: flex;
+    }
+    ha-tile-icon.weather {
+      --tile-icon-opacity: 0;
+      --tile-icon-hover-opacity: 0;
+      --tile-icon-border-radius: 0;
+    }
+    ha-tile-badge {
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      inset-inline-end: 3px;
+      inset-inline-start: initial;
+      --tile-badge-background-color: var(
+        --badge-color,
+        var(--secondary-text-color)
+      );
+    }
+    ha-tile-badge span {
+      font-size: 0.8rem;
+      font-weight: bold;
+      height: 16px;
+      line-height: 16px;
+    }
+    ha-tile-info {
+      position: relative;
+      min-width: 0;
+      transition: background-color 180ms ease-in-out;
+      box-sizing: border-box;
+    }
+    hui-card-features {
+      --feature-color: var(--tile-color);
+      padding: 0 12px 12px 12px;
+    }
+    .container.horizontal hui-card-features {
+      width: calc(50% - var(--column-gap, 0px) / 2 - 12px);
+      flex: none;
+      --feature-height: 36px;
+      padding: 0 12px;
+      padding-inline-start: 0;
+    }
+    .container.feature-only {
+      justify-content: flex-end;
+    }
+    .container.feature-only hui-card-features {
+      flex: 1;
+      width: 100%;
+      padding: 12px 12px 12px 12px;
+    }
+    .container.feature-only.horizontal hui-card-features {
+      padding: 0 12px;
+    }
+    .container.horizontal .content:not(:has(ha-tile-info)) {
+      flex: none;
+    }
+    .container.horizontal:not(:has(ha-tile-info)) hui-card-features {
+      width: auto;
+      flex: 1;
+    }
+    .container.horizontal:not(:has(ha-tile-info)) .content {
+      flex: none;
+    }
+  `,
+
+  // ---------- Bridge til Mushroom/legacy-variabler (kun for template-card) ----------
+  css`
+    :host {
+      /* Ikon-variabler fra legacy/Mushroom temaer med faldback til HA */
+      --tpl-icon-size: var(--mush-icon-size, var(--icon-size, 36px));
+      --tpl-icon-symbol-size: var(--mush-icon-symbol-size, 0.6em);
+
+      /* Sekundær tekst-variabler (legacy-navne) */
+      --tpl-secondary-color: var(
+        --mush-card-secondary-color,
+        var(--secondary-text-color)
+      );
+      --tpl-secondary-weight: var(--mush-card-secondary-font-weight, 400);
+      --tpl-secondary-font-size: var(--mush-card-secondary-font-size, inherit);
+    }
+
+    /* Sekundær tekst i dette kort (slot-baseret og klasse-baseret) */
+    ha-tile-info [slot="secondary"],
+    ha-tile-info .secondary {
+      color: var(--tpl-secondary-color);
+      font-weight: var(--tpl-secondary-weight);
+      font-size: var(--tpl-secondary-font-size);
+    }
+
+    /* Ikonstørrelse – dækker ha-icon/ha-state-icon + MDC */
+    ha-tile-icon,
+    ha-state-icon,
+    ha-icon {
+      width: var(--tpl-icon-size);
+      height: var(--tpl-icon-size);
+      --mdc-icon-size: var(--tpl-icon-size);
+    }
+    ha-state-icon svg,
+    ha-icon svg {
+      /* Relativ skalering af selve symbolet (legacy bruger em) */
+      font-size: var(--tpl-icon-symbol-size);
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Overstyr fast størrelse på vejrikoner, så tema-variabel gælder */
+    ha-tile-icon.weather svg {
+      width: var(--tpl-icon-size);
+      height: var(--tpl-icon-size);
+    }
+  `,
+];
 
 declare global {
   interface HTMLElementTagNameMap {
